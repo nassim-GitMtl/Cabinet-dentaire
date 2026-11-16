@@ -13,12 +13,15 @@ Application web de facturation pour praticiens (dentistes, généralistes, spéc
 3. Authentication → URL Configuration : mettre l'adresse de l'application dans « Site URL » et dans « Redirect URLs » (liens de confirmation et de mot de passe oublié).
 4. E-mails : soit désactiver « Confirm email » (inscription immédiate), soit brancher un service SMTP ; l'envoi intégré de Supabase est très limité.
 
+Après une mise à jour de l'application, réexécuter `supabase.sql` : le script peut être relancé sans risque et ajoute ce qui manque (dernier ajout : le journal des factures).
+
 ## Fonctionnement des données
 
 - Connexion obligatoire à l'ouverture. Ensuite l'application s'ouvre aussi sans réseau sur l'appareil.
 - Les saisies sont enregistrées sur l'appareil puis envoyées au compte ; hors connexion, elles partent au retour du réseau.
 - Même fiche modifiée sur deux appareils : la modification la plus récente l'emporte.
 - Se déconnecter retire les données de l'appareil ; elles reviennent à la reconnexion.
+- Une facture supprimée est archivée, jamais effacée. Le serveur tient un journal (création, modification, suppression, restauration) que l'application peut lire mais pas modifier : Factures → Archives.
 - La synchronisation n'est pas une sauvegarde : exporter régulièrement depuis Prestations → Données et sauvegarde.
 
 ## Fichiers

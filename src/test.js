@@ -101,6 +101,9 @@ const shots = process.argv[2];
   await nav('factures'); await p.click('[data-act=showArchives]'); assert(/F-2026-0001.*Supprimée le/.test(await T('#modal-body'))); await p.click('#modal-body [data-act=openInvoice]'); assert.equal(await p.locator('[data-act=editInvoice]').count(), 0);
   await p.click('[data-act=restoreInvoice]'); await nav('tableau'); assert(/8 500 DA 1 facture/.test(await T('.kpis'))); log('facture supprimée : archivée, consultable, restaurable');
   await nav('factures'); await p.click('button.item[data-act=openInvoice]'); await p.click('[data-act=deleteInvoice]'); await p.fill('#del-motif', 'Doublon'); await p.click('#confirm-ok');
+  await p.waitForTimeout(1500); await p.waitForFunction(() => document.querySelector('#sync-dot').textContent === 'Synchronisé');
+  await nav('factures'); await p.click('[data-act=showArchives]'); await p.waitForSelector('#journal .item'); { const j = await T('#journal'); assert(/Suppression · F-2026-0001.*Motif : Doublon/.test(j) && /Création · F-2026-0001/.test(j), j); log('journal serveur :', j.slice(0, 110)); }
+  await p.click('[data-act=closeModal]'); await nav('prestations'); await p.click('[data-act=checkServer]'); await p.waitForFunction(() => /Sur cet appareil/.test(document.querySelector('#diag').textContent)); log('diagnostic :', (await T('#diag')));
   await nav('prestations');
   await p.setInputFiles('#restore-file', { name: 'sauvegarde.json', mimeType: 'application/json', buffer: require('fs').readFileSync(f) });
   await p.click('#confirm-ok'); await nav('tableau');

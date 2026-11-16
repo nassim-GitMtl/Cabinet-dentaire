@@ -285,7 +285,7 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--accent);box
 <script>
 (function(){
 'use strict';
-var KEY='carnet-dentaire-v1', BUILD='2026-11-16 23:41 UTC', newer=false, lastCheck=0;
+var KEY='carnet-dentaire-v1', BUILD='2026-11-16 23:44 UTC', newer=false, lastCheck=0;
 var EMBED=false; try{EMBED=window.self!==window.top}catch(e){EMBED=true}
 var $=function(s){return document.querySelector(s)};
 var MODES={especes:'Espèces',carte:'Carte',cheque:'Chèque',virement:'Virement'};
@@ -780,7 +780,8 @@ function syncPanel(){
   if(sess&&!sy.login){
     return h+'<p style="margin:0">Connecté : <strong>'+esc(sess.email||'')+'</strong>. Vos factures et tarifs sont copiés sur votre compte Supabase et retrouvés sur chaque appareil connecté au même compte.</p>'+
       '<p class="small muted" id="sync-status" style="margin:0">'+esc(syncDetail())+'</p>'+
-      '<div class="row"><button class="btn primary grow" data-act="syncNow">Synchroniser maintenant</button><button class="btn grow" data-act="signOut">Se déconnecter</button></div></section>';
+      '<div class="row"><button class="btn primary grow" data-act="syncNow">Synchroniser maintenant</button><button class="btn grow" data-act="signOut">Se déconnecter</button></div>'+
+      '<button class="btn ghost" data-act="checkServer">Vérifier le serveur</button><pre id="diag" hidden style="margin:0;white-space:pre-wrap;font:13px/1.5 var(--f-text);background:var(--accent-soft);border-radius:10px;padding:10px 12px"></pre></section>';
   }
   return '';
 }
@@ -880,6 +881,37 @@ function saveOnboard(){
   save();real.services.forEach(function(s){syn.dirty['service:'+s.id]=1});mark('meta','cabinet');
   $('#modal').hidden=true;render();toast('Votre carnet est prêt');
 }
+function tableMsg(e,nom){
+  var m=(e&&e.message)||'';
+  if(!e||!e.status)return 'pas de réponse (hors connexion ?)';
+  if(e.status===404||/could not find the table|does not exist|PGRST205|schema cache/i.test(m))return 'table « '+nom+' » absente : exécutez supabase.sql dans Supabase (SQL Editor)';
+  if(e.status===401||e.status===403)return 'accès refusé ('+m+') : exécutez supabase.sql, puis reconnectez-vous';
+  return 'erreur '+e.status+' : '+m;
+}
+var JLAB={creation:'Création',modification:'Modification',suppression:'Suppression',restauration:'Restauration'};
+function loadJournal(){
+  var box=$('#journal');if(!box)return;
+  if(EMBED||!sess){box.textContent='Disponible une fois connecté, dans la version installée.';return}
+  ensureToken().then(function(){return api('/rest/v1/carnet_journal?select=action,numero,data,at&order=at.desc&limit=200')}).then(function(rows){
+    var b=$('#journal');if(!b)return;
+    if(!rows.length){b.textContent='Aucun événement enregistré pour l’instant.';return}
+    b.className='list';
+    b.innerHTML=rows.map(function(r){var d=r.data||{},dt=new Date(r.at),tot=Array.isArray(d.lignes)?fmt(d.lignes.reduce(function(a,l){return a+(+l.qte||0)*(+l.prix||0)},0)):'';
+      return '<div class="item"><div class="main"><span class="t">'+esc(JLAB[r.action]||r.action)+' · '+esc(r.numero||'')+'</span><span class="s">'+iso(dt).split('-').reverse().join('/')+' à '+pad(dt.getHours())+':'+pad(dt.getMinutes())+(d.archive&&d.archive.motif?' · Motif : '+esc(d.archive.motif):'')+'</span></div><span class="num amt">'+tot+'</span></div>'}).join('');
+  },function(e){var b=$('#journal');if(b)b.textContent='Journal indisponible : '+tableMsg(e,'carnet_journal')+'.'});
+}
+function checkServer(){
+  var out=$('#diag');if(!out)return;out.hidden=false;out.textContent='Vérification…';
+  var res=[];
+  function one(nom,path){return api(path).then(function(r){res.push(nom+' : OK ('+r.length+' ligne'+(r.length>1?'s':'')+' lue'+(r.length>1?'s':'')+')')},function(e){res.push(nom+' : '+tableMsg(e,nom))})}
+  ensureToken().then(function(){return one('carnet_items','/rest/v1/carnet_items?select=id&limit=5')},function(e){res.push('Session : '+((e&&e.message)||'expirée'))})
+    .then(function(){return one('carnet_journal','/rest/v1/carnet_journal?select=seq&limit=5')})
+    .then(function(){
+      res.push('Sur cet appareil : '+pl(live().length,'facture')+', '+pl(archived().length,'archivée')+', '+pending()+' en attente d’envoi');
+      if(sy.err)res.push('Dernière erreur de synchronisation : '+sy.err);
+      var o=$('#diag');if(o)o.textContent=res.join('\n');
+    });
+}
 function wipeLocal(){
   demo=null;real=fresh();sess=null;syn={cursor:null,dirty:{},tombs:{}};
   writeJ(SKEY,null);writeJ(YKEY,null);save();sy.login=false;sy.err='';sy.last=null;
@@ -916,8 +948,10 @@ var ACT={
   restoreInvoice:function(id){var i=D().invoices.find(function(x){return x.id===id});if(!i||!i.archive)return;delete i.archive;i.maj=new Date().toISOString();save();mark('invoice',id);$('#modal').hidden=true;render();toast('Facture '+i.numero+' restaurée')},
   showArchives:function(){
     $('#modal-title').textContent='Archives';
-    $('#modal-body').innerHTML='<p class="small muted" style="margin:0">Factures supprimées, de la plus récente à la plus ancienne. Elles ne comptent dans aucun total.</p><section class="panel"><div class="list">'+(archived().length?'':'<div class="empty">Aucune facture supprimée pour l’instant. Quand vous supprimez une facture, elle arrive ici.</div>')+archived().map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">Supprimée le '+dfr(String(i.archive.le).slice(0,10))+(i.archive.motif?' · '+esc(i.archive.motif):'')+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div></section>';
-    $('#modal').hidden=false},
+    $('#modal-body').innerHTML='<p class="small muted" style="margin:0">Factures supprimées, de la plus récente à la plus ancienne. Elles ne comptent dans aucun total.</p><section class="panel"><div class="list">'+(archived().length?'':'<div class="empty">Aucune facture supprimée pour l’instant. Quand vous supprimez une facture, elle arrive ici.</div>')+archived().map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">Supprimée le '+dfr(String(i.archive.le).slice(0,10))+(i.archive.motif?' · '+esc(i.archive.motif):'')+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div></section>'+
+      '<section class="panel"><div class="head"><h2>Journal des factures</h2><span class="small muted">tenu par le serveur</span></div><div id="journal" class="small muted">Chargement…</div></section>';
+    $('#modal').hidden=false;loadJournal()},
+  checkServer:checkServer,
   editService:function(id){serviceForm(id)},
   saveService:function(id){
     var nom=$('#svc-nom').value.trim(),raw=$('#svc-prix').value.trim(),prix=parseIntLoose(raw),e=$('#svc-err');
