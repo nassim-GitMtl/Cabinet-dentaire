@@ -406,7 +406,7 @@ function viewDash(){
   h+='<div class="datebar"><label>Date consultée<input type="date" id="dash-date" value="'+d+'"></label>'+(isToday?'':'<button class="btn" data-act="goToday">Aujourd’hui</button>')+'</div>';
   h+='<div class="kpis">'+kpi('day',isToday?'Aujourd’hui':dfr(d),jour)+kpi('',cap(mlong(m)),mois)+'</div>';
   if(!demo&&all.length){var ds=real.derniereSauvegarde,days=ds?Math.floor((Date.now()-new Date(ds))/864e5):null;
-    if(days===null||days>=7)h+='<div class="banner"><span>'+(days===null?'Aucune sauvegarde exportée pour l’instant.':'Dernière sauvegarde il y a '+days+' jours.')+'+(sess?' La synchronisation ne remplace pas une sauvegarde.':' Vos factures n’existent que sur cet appareil.')+'</span><a class="btn" href="#prestations">Sauvegarder</a></div>'}
+    if(days===null||days>=7)h+='<div class="banner"><span>'+(days===null?'Aucune sauvegarde exportée pour l’instant.':'Dernière sauvegarde il y a '+days+' jours.')+(sess?' La synchronisation ne remplace pas une sauvegarde.':' Vos factures n’existent que sur cet appareil.')+'</span><a class="btn" href="#prestations">Sauvegarder</a></div>'}
   h+='<div class="cols"><div>';
   h+='<section class="panel"><div class="head"><h2>Facturé par jour</h2><span class="small muted">'+cap(mlong(m))+'</span></div>'+(mois.length?chart(m,mois,d):'<div class="empty">Aucune facture ce mois-ci.</div>')+'</section>';
   h+='<section class="panel"><div class="head"><h2>Prestations du mois</h2><span class="small muted">classées par montant</span></div>'+ranking(mois)+'</section>';
