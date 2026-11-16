@@ -13,8 +13,8 @@ const head = `<!doctype html>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Carnet">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#13152e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light only">
 <meta name="format-detection" content="telephone=no">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="apple-touch-icon.png">

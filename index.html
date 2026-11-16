@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Carnet">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#13152e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light only">
 <meta name="format-detection" content="telephone=no">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="apple-touch-icon.png">
@@ -25,17 +25,10 @@
   --paper:#ffffff; --paper-ink:#111111; --paper-line:#8a8a8a;
   --f-text:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --f-display:"Manrope","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
   --r:16px; --shadow:0 1px 2px rgba(15,31,58,.05),0 6px 18px rgba(15,31,58,.06); --glass:rgba(255,255,255,.86);
   padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0a0b1e; --surface:#13152e; --ink:#eceefe; --muted:#9da1c4; --line:#292c52;
-  --accent:#8f93ff; --accent-ink:#05072e; --accent-soft:#1c1f5c; --bar:#3a3fb0;
-  --warn:#f0c36a; --warn-soft:#3a2e12; --danger:#ff8a80; --shade:rgba(0,0,0,.6); --shadow:0 1px 2px rgba(0,0,0,.4); --glass:rgba(19,21,46,.86); color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0a0b1e; --surface:#13152e; --ink:#eceefe; --muted:#9da1c4; --line:#292c52;
-  --accent:#8f93ff; --accent-ink:#05072e; --accent-soft:#1c1f5c; --bar:#3a3fb0;
-  --warn:#f0c36a; --warn-soft:#3a2e12; --danger:#ff8a80; --shade:rgba(0,0,0,.6); --shadow:0 1px 2px rgba(0,0,0,.4); --glass:rgba(19,21,46,.86); color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
@@ -285,7 +278,7 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--accent);box
 <script>
 (function(){
 'use strict';
-var KEY='carnet-dentaire-v1', BUILD='2026-11-16 23:44 UTC', newer=false, lastCheck=0;
+var KEY='carnet-dentaire-v1', BUILD='2026-11-16 23:49 UTC', newer=false, lastCheck=0;
 var EMBED=false; try{EMBED=window.self!==window.top}catch(e){EMBED=true}
 var $=function(s){return document.querySelector(s)};
 var MODES={especes:'Espèces',carte:'Carte',cheque:'Chèque',virement:'Virement'};
