@@ -1,0 +1,618 @@
+<title>Carnet dentaire</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap">
+<style>
+/* Mise en page : une colonne sur téléphone avec barre d'onglets en bas ; sur ordinateur, navigation à gauche et tableau de bord sur deux colonnes. */
+:root{
+  --bg:#f2f6f7; --surface:#ffffff; --ink:#10242b; --muted:#566b72; --line:#d6e0e3;
+  --accent:#0b6b74; --accent-ink:#ffffff; --accent-soft:#dbeeee; --bar:#8cc3c7;
+  --warn:#8a5200; --warn-soft:#fcf0d6; --danger:#b3261e; --shade:rgba(16,36,43,.45);
+  --paper:#ffffff; --paper-ink:#111111; --paper-line:#8a8a8a;
+  --f-text:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-display:"Manrope","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:12px;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d171a; --surface:#152226; --ink:#e7eff0; --muted:#94a8ae; --line:#293a3f;
+  --accent:#55c5cb; --accent-ink:#04262a; --accent-soft:#173a3e; --bar:#2c6a70;
+  --warn:#f0c36a; --warn-soft:#3a2e12; --danger:#ff8a80; --shade:rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d171a; --surface:#152226; --ink:#e7eff0; --muted:#94a8ae; --line:#293a3f;
+  --accent:#55c5cb; --accent-ink:#04262a; --accent-soft:#173a3e; --bar:#2c6a70;
+  --warn:#f0c36a; --warn-soft:#3a2e12; --danger:#ff8a80; --shade:rgba(0,0,0,.6); color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-text);-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance}
+h1{font-size:22px;font-weight:800}
+h2{font-size:16px;font-weight:700}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{font-size:16px;width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+textarea{min-height:72px;resize:vertical}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:500;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums;font-family:var(--f-display);font-weight:700;white-space:nowrap}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+/* En-tête et navigation */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:baseline;gap:10px;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{font:800 17px var(--f-display);color:var(--accent)}
+.cab{font-size:13px;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;background:var(--surface);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tabs a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 8px;min-height:56px;font-size:12px;font-weight:500;color:var(--muted);text-decoration:none}
+.tabs a svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs a[aria-current="page"]{color:var(--accent);font-weight:600}
+main{display:flex;flex-direction:column;gap:16px;padding-block:16px 96px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1080px;margin:0 auto}
+.banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--warn-soft);color:var(--warn);border-radius:var(--r);padding:10px 14px;font-size:13.5px;font-weight:500}
+.banner .btn{min-height:36px;padding:6px 12px}
+
+/* Boutons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer;text-decoration:none;color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.big{min-height:56px;font-size:17px;width:100%;font-family:var(--f-display);font-weight:700}
+.btn.danger{color:var(--danger)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row.end{justify-content:flex-end}
+.grow{flex:1;min-width:0}
+
+/* Blocs */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .lab{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.kpi .val{font:800 clamp(20px,6.2vw,30px)/1.15 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi .val small{font-size:.55em;font-weight:700;color:var(--muted)}
+.kpi.day{background:var(--accent-soft);border-color:transparent}
+.datebar{display:flex;gap:8px;align-items:flex-end}
+.datebar label{flex:1}
+.list{display:flex;flex-direction:column}
+.item{display:flex;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--line);min-width:0}
+.list .item:first-child{border-top:0}
+.item .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.item .t{font-weight:600;overflow-wrap:anywhere}
+.item .s{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.item .amt{font-size:16px}
+button.item{width:100%;background:none;border:0;border-top:1px solid var(--line);text-align:left;cursor:pointer}
+.rank .track{height:6px;border-radius:3px;background:var(--accent-soft);margin-top:5px}
+.rank .fill{height:100%;border-radius:3px;background:var(--accent)}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--warn-soft);color:var(--warn)}
+.pill.off{background:var(--line);color:var(--muted)}
+.empty{padding:14px 0;color:var(--muted);text-align:center}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{min-height:44px;border:0;background:none;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sum{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sum .num{font-size:22px;font-weight:800}
+.chart svg{display:block;width:100%;height:auto}
+.chart text{fill:var(--muted);font:10px var(--f-text)}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .bar{fill:var(--bar)} .chart .bar.sel{fill:var(--accent)}
+.chart .hit{fill:transparent;cursor:pointer}
+.chart .seltick{fill:var(--accent);font-weight:700}
+
+/* Feuilles (éditeur, détail, confirmation) */
+.sheet{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column}
+.sheet-head{display:flex;align-items:center;gap:8px;background:var(--surface);border-bottom:1px solid var(--line);
+  padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
+.sheet-head h2{flex:1;text-align:center;font-size:17px}
+.sheet-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:14px;
+  padding:16px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.sheet-foot{background:var(--surface);border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet-foot .tot{flex:1;display:flex;flex-direction:column;line-height:1.2}
+.sheet-foot .tot .num{font-size:24px;font-weight:800}
+.line{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.line .ctl{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:end}
+.line .sub{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;border-top:1px dashed var(--line);padding-top:8px}
+.line .sub .num{font-size:17px}
+.step{display:flex;align-items:center}
+.step button{width:44px;height:46px;border:1px solid var(--line);background:var(--surface);font-size:20px;font-weight:600;cursor:pointer}
+.step button:first-child{border-radius:10px 0 0 10px}.step button:last-child{border-radius:0 10px 10px 0}
+.step input{width:52px;text-align:center;border-radius:0;border-left:0;border-right:0;padding:10px 2px}
+.x{width:46px;height:46px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--danger);font-size:20px;cursor:pointer}
+.err{color:var(--danger);font-weight:600;font-size:14px}
+.check{flex-direction:row;align-items:center;gap:10px;font-size:15px;color:var(--ink)}
+.check input{width:24px;height:24px;min-height:0;accent-color:var(--accent)}
+.scrim{position:fixed;inset:0;z-index:70;background:var(--shade);display:flex;align-items:center;justify-content:center;padding:20px}
+.dialog{background:var(--surface);border-radius:16px;padding:20px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:16px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:80;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:600;max-width:calc(100% - 32px);text-align:center}
+
+/* Document imprimable (toujours noir sur blanc) */
+#apercu{z-index:60}
+#apercu .sheet-body{padding:12px}
+.paper{background:var(--paper);color:var(--paper-ink);width:100%;max-width:210mm;margin:0 auto;padding:clamp(14px,5vw,14mm);font:12.5px/1.45 var(--f-text);border:1px solid var(--line)}
+.paper h1{font-size:19px;color:var(--paper-ink)}
+.paper .p-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--paper-ink);padding-bottom:10px;margin-bottom:14px}
+.paper .p-cab{font-weight:700;font-size:15px;font-family:var(--f-display)}
+.paper .p-meta{text-align:right}
+.paper table{width:100%;border-collapse:collapse;margin-top:12px}
+.paper th,.paper td{border-bottom:1px solid var(--paper-line);padding:6px 5px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.paper th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1.5px solid var(--paper-ink)}
+.paper .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.paper tfoot td{border-bottom:0;border-top:1.5px solid var(--paper-ink);font-weight:700;font-size:14px}
+.paper .p-note{margin-top:14px}
+.paper .p-foot{margin-top:22px;font-size:11px;color:var(--paper-ink)}
+.paper .p-sign{margin-top:36px;text-align:right}
+
+@media (min-width:900px){
+  .tabs{top:0;bottom:0;right:auto;width:210px;flex-direction:column;justify-content:flex-start;gap:4px;border-top:0;border-right:1px solid var(--line);padding:76px 12px 12px}
+  .tabs a{flex:none;flex-direction:row;gap:12px;justify-content:flex-start;padding:12px 14px;border-radius:10px;font-size:15px;min-height:48px}
+  .tabs a[aria-current="page"]{background:var(--accent-soft)}
+  .top{z-index:11;position:fixed;left:0;width:210px;border-bottom:0;background:transparent}
+  .top-in{flex-direction:column;gap:2px;padding:18px 26px}
+  body{padding-left:210px}
+  main{padding-block:28px 40px;padding-left:28px;padding-right:28px}
+  .cols{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;align-items:start}
+  .cols>div{display:flex;flex-direction:column;gap:16px;min-width:0}
+  .sheet:not(#apercu){background:var(--shade);align-items:center;justify-content:center}
+  .sheet:not(#apercu)>.sheet-in{width:640px;max-height:90vh;border-radius:16px;overflow:hidden;background:var(--bg)}
+  .toast{bottom:28px}
+  .btn.big{width:auto;padding-inline:28px}
+}
+.sheet-in{display:flex;flex-direction:column;flex:1;min-height:0;width:100%}
+@media (max-width:899px){.cols,.cols>div{display:flex;flex-direction:column;gap:16px}}
+
+@page{size:A4;margin:14mm}
+@media print{
+  :root{padding:0}
+  html,body{background:var(--paper)!important;padding:0!important}
+  body::before,body>*:not(#apercu){display:none!important}
+  #apercu{position:static;display:block;background:var(--paper)}
+  #apercu .sheet-head,#apercu .noprint{display:none!important}
+  #apercu .sheet-body{padding:0;overflow:visible;display:block}
+  .paper{border:0;padding:0;max-width:none;font-size:11.5pt}
+  .paper thead{display:table-header-group}
+  .paper tr{break-inside:avoid}
+}
+@media (prefers-reduced-motion:no-preference){.btn,.seg button{transition:background-color .12s}}
+</style>
+
+<header class="top"><div class="top-in"><span class="brand">Carnet dentaire</span><span class="cab" id="cab-name"></span></div></header>
+
+<main>
+  <div id="banners"></div>
+  <div id="view"></div>
+</main>
+
+<nav class="tabs" aria-label="Navigation principale">
+  <a href="#tableau" data-tab="tableau"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="9" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="15.5" width="7" height="5" rx="1.5"/></svg>Tableau de bord</a>
+  <a href="#factures" data-tab="factures"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12.5h6"/></svg>Factures</a>
+  <a href="#prestations" data-tab="prestations"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12.5v-8a1 1 0 0 1 1-1h8l8 8-9 9z"/><circle cx="8" cy="8" r="1.4"/></svg>Prestations</a>
+</nav>
+
+<div class="sheet" id="editor" hidden><div class="sheet-in">
+  <div class="sheet-head"><button class="btn ghost" data-act="closeEditor">Annuler</button><h2 id="ed-title">Nouvelle facture</h2><span style="width:80px"></span></div>
+  <div class="sheet-body" id="ed-body"></div>
+  <div class="sheet-foot"><div class="tot"><span class="small muted">Total général</span><span class="num" id="ed-total">0 DA</span></div><button class="btn primary" data-act="saveInvoice" id="ed-save">Enregistrer</button></div>
+</div></div>
+
+<div class="sheet" id="modal" hidden><div class="sheet-in">
+  <div class="sheet-head"><button class="btn ghost" data-act="closeModal">Fermer</button><h2 id="modal-title"></h2><span style="width:80px"></span></div>
+  <div class="sheet-body" id="modal-body"></div>
+</div></div>
+
+<div class="sheet" id="apercu" hidden>
+  <div class="sheet-head"><button class="btn ghost" data-act="closeApercu">Fermer</button><h2 id="ap-title">Aperçu</h2><button class="btn primary" id="ap-print" data-act="printNow">Imprimer</button></div>
+  <div class="sheet-body"><p class="small muted noprint" id="ap-note" style="margin:0;text-align:center"></p><div id="paper"></div></div>
+</div>
+
+<div class="scrim" id="confirm" hidden><div class="dialog" role="alertdialog" aria-modal="true"><div id="confirm-msg"></div><div class="row end"><button class="btn" data-act="confirmNo">Annuler</button><button class="btn primary" id="confirm-ok" data-act="confirmYes">Confirmer</button></div></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<input type="file" id="restore-file" accept=".json,application/json" hidden>
+
+<script>
+(function(){
+'use strict';
+var KEY='carnet-dentaire-v1';
+var EMBED=false; try{EMBED=window.self!==window.top}catch(e){EMBED=true}
+var $=function(s){return document.querySelector(s)};
+var storageOK=true, demo=null, real=load();
+function D(){return demo||real}
+
+/* ---------- Données ---------- */
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function fresh(){
+  var ex=[['Consultation',1500],['Détartrage',3500],['Obturation',4000],['Extraction simple',3000],['Traitement endodontique',8000],['Radiographie',1000]];
+  return {version:1,cabinet:{nom:'',praticien:'',adresse:'',tel:'',mentions:''},
+    services:ex.map(function(e,i){return {id:'s'+(i+1),nom:e[0],prix:e[1],actif:true,exemple:true}}),
+    invoices:[],compteur:{},derniereSauvegarde:null};
+}
+function normalize(d){
+  var f=fresh();
+  if(!d||typeof d!=='object'||!Array.isArray(d.services)||!Array.isArray(d.invoices))return null;
+  d.cabinet=Object.assign(f.cabinet,d.cabinet||{});
+  d.compteur=d.compteur||{}; d.version=1;
+  d.services.forEach(function(s){s.prix=Math.max(0,Math.round(+s.prix||0));s.actif=s.actif!==false;s.nom=String(s.nom||'')});
+  d.invoices=d.invoices.filter(function(i){return i&&i.id&&/^\d{4}-\d\d-\d\d$/.test(i.date)&&Array.isArray(i.lignes)});
+  d.invoices.forEach(function(i){i.numero=String(i.numero||'');i.patient=i.patient||'';
+    i.lignes.forEach(function(l){l.qte=Math.max(1,Math.round(+l.qte||1));l.prix=Math.max(0,Math.round(+l.prix||0));l.libelle=String(l.libelle||'')})});
+  return d;
+}
+function load(){
+  try{var raw=localStorage.getItem(KEY); if(raw){var d=normalize(JSON.parse(raw)); if(d)return d}}
+  catch(e){storageOK=false}
+  return fresh();
+}
+function save(){
+  if(demo)return;
+  try{localStorage.setItem(KEY,JSON.stringify(real));storageOK=true;
+    if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});}
+  catch(e){storageOK=false}
+}
+
+/* ---------- Outils ---------- */
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function grp(n){return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ')}
+function fmt(n){return grp(n)+' DA'}
+function pad(n){return String(n).padStart(2,'0')}
+function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function today(){return iso(new Date())}
+function toDate(s){return new Date(s+'T12:00:00')}
+function dfr(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function dlong(s){return toDate(s).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+function mlong(m){var s=toDate(m+'-01').toLocaleDateString('fr-FR',{month:'long',year:'numeric'});return s}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function invTotal(i){return i.lignes.reduce(function(a,l){return a+l.qte*l.prix},0)}
+function sumInv(a){return a.reduce(function(t,i){return t+invTotal(i)},0)}
+function pl(n,w){return n+' '+w+(n>1?'s':'')}
+function lignesTxt(i){return i.lignes.map(function(l){return l.libelle+(l.qte>1?' ×'+l.qte:'')}).join(', ')}
+function parseIntLoose(v){return parseInt(String(v).replace(/[^\d]/g,''),10)||0}
+function byRegister(a,b){return a.date<b.date?-1:a.date>b.date?1:a.numero.localeCompare(b.numero,'fr',{numeric:true})}
+function nextNumero(y){
+  var max=D().compteur[y]||0;
+  D().invoices.forEach(function(i){var m=/^F-(\d{4})-(\d+)$/.exec(i.numero);if(m&&+m[1]===y)max=Math.max(max,+m[2])});
+  return 'F-'+y+'-'+String(max+1).padStart(4,'0');
+}
+function enLettres(n){
+  if(n===0)return 'zéro';
+  var U=['','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize','dix-sept','dix-huit','dix-neuf'];
+  var T=['','','vingt','trente','quarante','cinquante','soixante','soixante','quatre-vingt','quatre-vingt'];
+  function s100(n){
+    if(n<20)return U[n];
+    var d=Math.floor(n/10),u=n%10;
+    if(d===7||d===9)return T[d]+(d===7&&u===1?' et ':'-')+U[10+u];
+    if(u===0)return d===8?'quatre-vingts':T[d];
+    if(u===1&&d!==8)return T[d]+' et un';
+    return T[d]+'-'+U[u];
+  }
+  function s1000(n,fin){
+    var c=Math.floor(n/100),r=n%100,s='';
+    if(c===1)s='cent';else if(c>1)s=U[c]+' cent'+(r===0&&fin?'s':'');
+    if(r)s+=(s?' ':'')+s100(r);
+    return fin?s:s.replace(/quatre-vingts$/,'quatre-vingt');
+  }
+  var out=[],M=Math.floor(n/1e6),K=Math.floor(n%1e6/1000),R=n%1000;
+  if(M)out.push(s1000(M,true)+' million'+(M>1?'s':''));
+  if(K)out.push(K===1?'mille':s1000(K,false)+' mille');
+  if(R)out.push(s1000(R,true));
+  return out.join(' ')+(M&&!K&&!R?' de':'');
+}
+
+/* ---------- État d'interface ---------- */
+var ui={view:'tableau',day:today(),fMode:'jour',fDay:today(),fMonth:today().slice(0,7),fFrom:today().slice(0,8)+'01',fTo:today()};
+var draft=null, edErr='', confirmCb=null, toastT=null;
+function toast(msg){var t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
+function ask(html,okLabel,cb){$('#confirm-msg').innerHTML=html;$('#confirm-ok').textContent=okLabel;confirmCb=cb;$('#confirm').hidden=false}
+
+/* ---------- Rendu général ---------- */
+function render(){
+  var v=(location.hash||'').slice(1);
+  ui.view=['tableau','factures','prestations'].indexOf(v)>=0?v:'tableau';
+  document.querySelectorAll('.tabs a').forEach(function(a){if(a.dataset.tab===ui.view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  $('#cab-name').textContent=D().cabinet.nom||'';
+  var b='';
+  if(demo)b+='<div class="banner"><span>Démonstration : données fictives, rien n’est enregistré et vos vrais totaux ne sont pas touchés.</span><button class="btn" data-act="quitDemo">Quitter la démonstration</button></div>';
+  if(!storageOK)b+='<div class="banner"><span>Le stockage de ce navigateur est indisponible (navigation privée ?). Vos saisies ne seront pas conservées.</span></div>';
+  if(EMBED)b+='<div class="banner"><span>Aperçu : l’impression et le fichier de sauvegarde ne fonctionnent que dans la version installée (fichier livré).</span></div>';
+  $('#banners').innerHTML=b; $('#banners').hidden=!b;
+  $('#banners').style.cssText='display:flex;flex-direction:column;gap:8px';
+  ({tableau:viewDash,factures:viewFactures,prestations:viewPrestations})[ui.view]();
+}
+
+/* ---------- Tableau de bord ---------- */
+function viewDash(){
+  var d=ui.day,m=d.slice(0,7),all=D().invoices;
+  var jour=all.filter(function(i){return i.date===d}),mois=all.filter(function(i){return i.date.slice(0,7)===m});
+  var isToday=d===today();
+  var h='<div class="head"><h1>Tableau de bord</h1></div>';
+  h+='<button class="btn primary big" data-act="newInvoice">+ Nouvelle facture</button>';
+  h+='<div class="datebar"><label>Date consultée<input type="date" id="dash-date" value="'+d+'"></label>'+(isToday?'':'<button class="btn" data-act="goToday">Aujourd’hui</button>')+'</div>';
+  h+='<div class="kpis">'+kpi('day',isToday?'Aujourd’hui':dfr(d),jour)+kpi('',cap(mlong(m)),mois)+'</div>';
+  if(!demo&&all.length){var ds=real.derniereSauvegarde,days=ds?Math.floor((Date.now()-new Date(ds))/864e5):null;
+    if(days===null||days>=7)h+='<div class="banner"><span>'+(days===null?'Aucune sauvegarde exportée pour l’instant.':'Dernière sauvegarde il y a '+days+' jours.')+' Vos factures n’existent que sur cet appareil.</span><a class="btn" href="#prestations">Sauvegarder</a></div>'}
+  h+='<div class="cols"><div>';
+  h+='<section class="panel"><div class="head"><h2>Facturé par jour</h2><span class="small muted">'+cap(mlong(m))+'</span></div>'+(mois.length?chart(m,mois,d):'<div class="empty">Aucune facture ce mois-ci.</div>')+'</section>';
+  h+='<section class="panel"><div class="head"><h2>Prestations du mois</h2><span class="small muted">classées par montant</span></div>'+ranking(mois)+'</section>';
+  h+='</div><div>';
+  var last=all.slice().sort(function(a,b){return b.date.localeCompare(a.date)||String(b.creeLe||'').localeCompare(String(a.creeLe||''))}).slice(0,5);
+  h+='<section class="panel"><div class="head"><h2>Dernières factures</h2><a class="small" href="#factures" style="color:var(--accent);font-weight:600">Tout le registre</a></div>';
+  if(last.length)h+='<div class="list">'+last.map(function(i){return '<div class="item"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+'</span><span class="s">'+esc(lignesTxt(i))+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span><button class="btn" data-act="openInvoice" data-id="'+i.id+'">Ouvrir</button></div>'}).join('')+'</div>';
+  else h+='<div class="empty">Aucune facture enregistrée. Vos totaux démarrent à zéro.'+(demo?'':'<br><button class="btn ghost" data-act="startDemo">Voir une démonstration</button>')+'</div>';
+  h+='</section></div></div>';
+  $('#view').innerHTML=h;
+}
+function kpi(cls,lab,list){return '<div class="kpi '+cls+'"><span class="lab">'+esc(lab)+'</span><span class="val">'+grp(sumInv(list))+' <small>DA</small></span><span class="small muted">'+pl(list.length,'facture')+'</span></div>'}
+function niceMax(v){if(v<=0)return 1000;var p=Math.pow(10,Math.floor(Math.log10(v))),f=v/p;return (f<=1?1:f<=2?2:f<=5?5:10)*p}
+function chart(m,mois,sel){
+  var y=+m.slice(0,4),mo=+m.slice(5,7),n=new Date(y,mo,0).getDate(),tot=[];
+  for(var i=0;i<=n;i++)tot.push(0);
+  mois.forEach(function(inv){tot[+inv.date.slice(8)]+=invTotal(inv)});
+  var mx=niceMax(Math.max.apply(null,tot)),W=340,H=170,L=46,R=6,T=10,B=22,pw=W-L-R,ph=H-T-B,step=pw/n,bw=Math.max(3,step*0.68);
+  var s='<div class="chart"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Montants facturés par jour, '+esc(mlong(m))+'">';
+  [0,.5,1].forEach(function(f){var yy=T+ph-ph*f;s+='<line class="grid" x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'"/><text x="'+(L-5)+'" y="'+(yy+3.5)+'" text-anchor="end">'+grp(mx*f)+'</text>'});
+  var selDay=+sel.slice(8);
+  for(var d=1;d<=n;d++){
+    var x=L+(d-1)*step,hh=tot[d]/mx*ph,day=m+'-'+pad(d);
+    if(tot[d]>0)s+='<rect class="bar'+(d===selDay?' sel':'')+'" x="'+(x+(step-bw)/2).toFixed(1)+'" y="'+(T+ph-Math.max(hh,2)).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(hh,2).toFixed(1)+'" rx="1.5"/>';
+    if(d===selDay)s+='<text class="seltick" x="'+(x+step/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+d+'</text>';
+    else if((d===1||d%5===0)&&Math.abs(d-selDay)>1)s+='<text x="'+(x+step/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+d+'</text>';
+    s+='<rect class="hit" data-act="pickDay" data-id="'+day+'" x="'+x.toFixed(1)+'" y="'+T+'" width="'+step.toFixed(1)+'" height="'+(ph+B)+'"><title>'+dfr(day)+' : '+fmt(tot[d])+'</title></rect>';
+  }
+  return s+'</svg></div><p class="small muted" style="margin:0">Montants en DA. Touchez un jour pour l’afficher ; le jour consulté est en couleur pleine.</p>';
+}
+function ranking(mois){
+  var map={};
+  mois.forEach(function(i){i.lignes.forEach(function(l){var k=l.libelle;if(!map[k])map[k]={nom:k,n:0,t:0};map[k].n+=l.qte;map[k].t+=l.qte*l.prix})});
+  var a=Object.keys(map).map(function(k){return map[k]}).sort(function(x,y){return y.t-x.t||y.n-x.n});
+  if(!a.length)return '<div class="empty">Le classement apparaîtra avec vos premières factures du mois.</div>';
+  var mx=a[0].t||1;
+  return '<div class="list rank">'+a.map(function(r,i){return '<div class="item"><div class="main"><span class="t">'+(i+1)+'. '+esc(r.nom)+'</span><span class="s">'+pl(r.n,'acte')+'</span><div class="track"><div class="fill" style="width:'+Math.max(2,r.t/mx*100).toFixed(1)+'%"></div></div></div><span class="num amt">'+fmt(r.t)+'</span></div>'}).join('')+'</div>';
+}
+
+/* ---------- Registre ---------- */
+function filtered(){
+  var list,label,all=D().invoices;
+  if(ui.fMode==='jour'){list=all.filter(function(i){return i.date===ui.fDay});label='Journée du '+dfr(ui.fDay)}
+  else if(ui.fMode==='mois'){list=all.filter(function(i){return i.date.slice(0,7)===ui.fMonth});label=cap(mlong(ui.fMonth))}
+  else{var a=ui.fFrom,b=ui.fTo;if(a>b){var t=a;a=b;b=t}list=all.filter(function(i){return i.date>=a&&i.date<=b});label='Du '+dfr(a)+' au '+dfr(b)}
+  list=list.slice().sort(byRegister);
+  return {list:list,label:label,total:sumInv(list)};
+}
+function viewFactures(){
+  var f=filtered(),h='<div class="head"><h1>Factures</h1></div>';
+  h+='<div class="seg" role="group" aria-label="Type de période">'+[['jour','Journée'],['mois','Mois'],['plage','Période']].map(function(m){return '<button data-act="fMode" data-id="'+m[0]+'" aria-pressed="'+(ui.fMode===m[0])+'">'+m[1]+'</button>'}).join('')+'</div>';
+  if(ui.fMode==='jour')h+='<label>Journée<input type="date" id="f-day" value="'+ui.fDay+'"></label>';
+  else if(ui.fMode==='mois')h+='<label>Mois<input type="month" id="f-month" value="'+ui.fMonth+'" placeholder="AAAA-MM"></label>';
+  else h+='<div class="two"><label>Du<input type="date" id="f-from" value="'+ui.fFrom+'"></label><label>Au<input type="date" id="f-to" value="'+ui.fTo+'"></label></div>';
+  h+='<section class="panel"><div class="sum"><div><div style="font-weight:600">'+esc(f.label)+'</div><div class="small muted">'+pl(f.list.length,'facture')+'</div></div><span class="num">'+fmt(f.total)+'</span></div>';
+  h+='<button class="btn" data-act="printList"'+(f.list.length?'':' disabled')+'>'+(EMBED?'Aperçu de la liste imprimée':'Imprimer la liste')+'</button></section>';
+  h+='<section class="panel">';
+  if(f.list.length)h+='<div class="list">'+f.list.map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">'+esc(lignesTxt(i))+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div>';
+  else h+='<div class="empty">Aucune facture sur cette période.</div>';
+  h+='</section>';
+  $('#view').innerHTML=h;
+}
+
+/* ---------- Prestations, cabinet, sauvegarde ---------- */
+function viewPrestations(){
+  var S=D().services,c=D().cabinet,h='<div class="head"><h1>Prestations</h1><button class="btn primary" data-act="editService">+ Ajouter</button></div>';
+  if(S.some(function(s){return s.exemple}))h+='<div class="banner"><span>Les prix marqués « exemple » sont fournis à titre indicatif. Remplacez-les par vos tarifs.</span></div>';
+  h+='<section class="panel"><div class="list">'+S.map(function(s){return '<button class="item" data-act="editService" data-id="'+s.id+'"><div class="main"><span class="t">'+esc(s.nom)+'</span><span class="s">'+(s.actif?'':'<span class="pill off">Désactivée</span> ')+(s.exemple?'<span class="pill">Prix exemple</span>':(s.actif?'Tarif par défaut':''))+'</span></div><span class="num amt">'+fmt(s.prix)+'</span></button>'}).join('')+'</div>';
+  h+='<p class="small muted" style="margin:0">Un changement de tarif s’applique aux prochaines saisies. Les factures déjà enregistrées gardent leur libellé et leur prix.</p></section>';
+  h+='<section class="panel"><h2>Cabinet (en-tête des impressions)</h2>'+
+    '<label>Nom du cabinet<input id="cab-nom" data-cab="nom" value="'+esc(c.nom)+'" placeholder="Cabinet dentaire…"></label>'+
+    '<label>Praticien<input id="cab-praticien" data-cab="praticien" value="'+esc(c.praticien)+'" placeholder="Dr …"></label>'+
+    '<label>Adresse<input id="cab-adresse" data-cab="adresse" value="'+esc(c.adresse)+'"></label>'+
+    '<label>Téléphone<input id="cab-tel" data-cab="tel" type="tel" value="'+esc(c.tel)+'"></label>'+
+    '<label>Mentions (NIF, NIS, n° d’ordre…)<textarea id="cab-mentions" data-cab="mentions">'+esc(c.mentions)+'</textarea></label></section>';
+  h+='<section class="panel"><h2>Données et sauvegarde</h2><p style="margin:0">Vos factures et tarifs sont enregistrés <strong>dans ce navigateur, sur cet appareil uniquement</strong>. Rien n’est envoyé sur Internet. Effacer les données du site ou changer de téléphone les fait disparaître : exportez une sauvegarde régulièrement.</p>'+
+    '<p class="small muted" style="margin:0">'+pl(real.invoices.length,'facture')+' enregistrée'+(real.invoices.length>1?'s':'')+' · Dernière sauvegarde : '+(real.derniereSauvegarde?dfr(real.derniereSauvegarde.slice(0,10)):'jamais')+'</p>'+
+    '<div class="row"><button class="btn primary grow" data-act="exportData"'+(EMBED?' disabled':'')+'>Exporter une sauvegarde</button><button class="btn grow" data-act="pickRestore">Restaurer une sauvegarde</button></div>'+
+    (demo?'':'<button class="btn ghost" data-act="startDemo">Voir une démonstration (données fictives)</button>')+'</section>';
+  $('#view').innerHTML=h;
+}
+function serviceForm(id){
+  var s=id?D().services.find(function(x){return x.id===id}):null;
+  $('#modal-title').textContent=s?'Modifier la prestation':'Nouvelle prestation';
+  $('#modal-body').innerHTML='<label>Nom de la prestation<input id="svc-nom" value="'+esc(s?s.nom:'')+'" autocomplete="off"></label>'+
+    '<label>Prix par défaut (DA)<input id="svc-prix" inputmode="numeric" value="'+(s?s.prix:'')+'" autocomplete="off"></label>'+
+    '<label class="check"><input type="checkbox" id="svc-actif"'+(!s||s.actif?' checked':'')+'>Proposée dans les nouvelles factures</label>'+
+    '<div class="err" id="svc-err" hidden></div><button class="btn primary" data-act="saveService" data-id="'+(s?s.id:'')+'">Enregistrer</button>';
+  $('#modal').hidden=false;
+}
+
+/* ---------- Détail d'une facture ---------- */
+function invoiceDetail(id){
+  var i=D().invoices.find(function(x){return x.id===id}); if(!i)return;
+  $('#modal-title').textContent='Facture '+i.numero;
+  $('#modal-body').innerHTML='<section class="panel"><div class="sum"><div><div style="font-weight:600">'+cap(dlong(i.date))+'</div>'+(i.patient?'<div class="small muted">Patient : '+esc(i.patient)+'</div>':'')+'</div></div>'+
+    '<div class="list">'+i.lignes.map(function(l){return '<div class="item"><div class="main"><span class="t">'+esc(l.libelle)+'</span><span class="s">'+l.qte+' × '+fmt(l.prix)+'</span></div><span class="num amt">'+fmt(l.qte*l.prix)+'</span></div>'}).join('')+'</div>'+
+    '<div class="sum" style="border-top:2px solid var(--ink);padding-top:10px"><span style="font-weight:600">Total général</span><span class="num">'+fmt(invTotal(i))+'</span></div></section>'+
+    '<button class="btn primary" data-act="editInvoice" data-id="'+i.id+'">Corriger la facture</button>'+
+    '<button class="btn" data-act="printInvoice" data-id="'+i.id+'">'+(EMBED?'Aperçu de la facture imprimée':'Imprimer la facture')+'</button>'+
+    '<button class="btn danger" data-act="deleteInvoice" data-id="'+i.id+'">Supprimer</button>';
+  $('#modal').hidden=false;
+}
+
+/* ---------- Éditeur de facture ---------- */
+function blank(){return {serviceId:'',libelle:'',qte:1,prix:0}}
+function openEditor(id){
+  var inv=id?D().invoices.find(function(x){return x.id===id}):null;
+  draft=inv?JSON.parse(JSON.stringify(inv)):{id:null,numero:nextNumero(+today().slice(0,4)),date:today(),patient:'',lignes:[blank()]};
+  edErr=''; $('#ed-title').textContent=inv?'Corriger la facture':'Nouvelle facture';
+  $('#modal').hidden=true; renderEditor(); $('#editor').hidden=false;
+}
+function lineOptions(l){
+  var svc=D().services.find(function(s){return s.id===l.serviceId});
+  var keep=l.libelle&&!(svc&&svc.actif&&svc.nom===l.libelle);
+  var h='<option value="" disabled'+(l.libelle?'':' selected')+'>Choisir une prestation…</option>';
+  if(keep)h+='<option value="__keep" selected>'+esc(l.libelle)+' (libellé facturé)</option>';
+  return h+D().services.filter(function(s){return s.actif}).map(function(s){return '<option value="'+s.id+'"'+(!keep&&l.libelle&&l.serviceId===s.id?' selected':'')+'>'+esc(s.nom)+' — '+fmt(s.prix)+'</option>'}).join('');
+}
+function renderEditor(){
+  var h='<div class="two"><label>Numéro<input id="ed-numero" value="'+esc(draft.numero)+'" autocomplete="off"></label><label>Date<input type="date" id="ed-date" value="'+draft.date+'"></label></div>'+
+    '<label>Patient (facultatif)<input id="ed-patient" value="'+esc(draft.patient)+'" autocomplete="off"></label>';
+  h+=draft.lignes.map(function(l,i){return '<div class="line"><label>Prestation<select id="ln-svc-'+i+'" data-i="'+i+'" data-f="svc">'+lineOptions(l)+'</select></label>'+
+    '<button class="x" data-act="rmLine" data-id="'+i+'" aria-label="Retirer cette ligne"'+(draft.lignes.length<2?' disabled':'')+'>×</button>'+
+    '<div class="ctl"><label>Quantité<span class="step"><button type="button" data-act="qty" data-id="'+i+'" data-d="-1" aria-label="Diminuer">−</button><input id="ln-qte-'+i+'" data-i="'+i+'" data-f="qte" inputmode="numeric" value="'+l.qte+'"><button type="button" data-act="qty" data-id="'+i+'" data-d="1" aria-label="Augmenter">+</button></span></label>'+
+    '<label>Prix unitaire (DA)<input id="ln-prix-'+i+'" data-i="'+i+'" data-f="prix" inputmode="numeric" value="'+(l.libelle?l.prix:'')+'" autocomplete="off"></label></div>'+
+    '<div class="sub"><span class="small muted">Sous-total</span><span class="num" id="ln-sub-'+i+'">'+fmt(l.qte*l.prix)+'</span></div></div>'}).join('');
+  h+='<button class="btn" data-act="addLine">+ Ajouter une prestation</button><div class="err" id="ed-err"'+(edErr?'':' hidden')+'>'+esc(edErr)+'</div>';
+  $('#ed-body').innerHTML=h; updTotals();
+}
+function updTotals(){
+  draft.lignes.forEach(function(l,i){var e=$('#ln-sub-'+i);if(e)e.textContent=fmt(l.qte*l.prix)});
+  $('#ed-total').textContent=fmt(invTotal(draft));
+}
+function saveInvoice(){
+  var num=draft.numero.trim(),lines=draft.lignes.filter(function(l){return l.libelle}),err='';
+  if(!num)err='Indiquez un numéro de facture.';
+  else if(D().invoices.some(function(i){return i.id!==draft.id&&i.numero.trim().toLowerCase()===num.toLowerCase()}))err='Le numéro '+num+' est déjà utilisé par une autre facture.';
+  else if(!/^\d{4}-\d\d-\d\d$/.test(draft.date))err='Indiquez la date de la facture.';
+  else if(!lines.length)err='Choisissez au moins une prestation.';
+  if(err){edErr=err;var e=$('#ed-err');e.textContent=err;e.hidden=false;e.scrollIntoView({block:'center'});return}
+  var now=new Date().toISOString(),rec={id:draft.id||uid(),numero:num,date:draft.date,patient:draft.patient.trim(),
+    lignes:lines.map(function(l){return {serviceId:l.serviceId,libelle:l.libelle,qte:Math.max(1,l.qte),prix:Math.max(0,l.prix)}}),creeLe:draft.creeLe||now,modifieLe:now};
+  var list=D().invoices,ix=list.findIndex(function(i){return i.id===rec.id}),isNew=ix<0;
+  if(isNew)list.push(rec);else list[ix]=rec;
+  var m=/^F-(\d{4})-(\d+)$/.exec(num);if(m)D().compteur[m[1]]=Math.max(D().compteur[m[1]]||0,+m[2]);
+  save(); $('#editor').hidden=true; draft=null; render();
+  toast('Facture '+num+(isNew?' enregistrée':' corrigée')+' · '+fmt(invTotal(rec)));
+}
+
+/* ---------- Documents imprimables ---------- */
+function docHead(titre,meta){
+  var c=D().cabinet;
+  return '<div class="p-head"><div><div class="p-cab">'+esc(c.nom||'Cabinet dentaire')+'</div>'+(c.praticien?'<div>'+esc(c.praticien)+'</div>':'')+(c.adresse?'<div>'+esc(c.adresse)+'</div>':'')+(c.tel?'<div>Tél. '+esc(c.tel)+'</div>':'')+(c.mentions?'<div style="white-space:pre-line">'+esc(c.mentions)+'</div>':'')+'</div><div class="p-meta"><h1>'+titre+'</h1>'+meta+'</div></div>';
+}
+function invoiceDoc(i){
+  var t=invTotal(i);
+  return '<div class="paper">'+docHead('Facture','<div><strong>N° '+esc(i.numero)+'</strong></div><div>Date : '+dfr(i.date)+'</div>')+
+    (i.patient?'<div>Patient : <strong>'+esc(i.patient)+'</strong></div>':'')+
+    '<table><thead><tr><th>Prestation</th><th class="r">Qté</th><th class="r">Prix unitaire</th><th class="r">Montant</th></tr></thead><tbody>'+
+    i.lignes.map(function(l){return '<tr><td>'+esc(l.libelle)+'</td><td class="r">'+l.qte+'</td><td class="r">'+fmt(l.prix)+'</td><td class="r">'+fmt(l.qte*l.prix)+'</td></tr>'}).join('')+
+    '</tbody><tfoot><tr><td colspan="3">Total général</td><td class="r" data-total>'+fmt(t)+'</td></tr></tfoot></table>'+
+    '<p class="p-note">Arrêtée la présente facture à la somme de : <strong>'+esc(enLettres(t))+' dinars algériens</strong>.</p><p class="p-sign">Cachet et signature</p></div>';
+}
+function registerDoc(f){
+  return '<div class="paper">'+docHead('Registre des factures','<div><strong>'+esc(f.label)+'</strong></div><div>'+pl(f.list.length,'facture')+'</div>')+
+    '<table><thead><tr><th>N°</th><th>Date</th><th>Prestations</th><th class="r">Total</th></tr></thead><tbody>'+
+    f.list.map(function(i){return '<tr><td>'+esc(i.numero)+'</td><td>'+dfr(i.date)+'</td><td>'+esc(lignesTxt(i))+(i.patient?'<br><span style="font-size:.9em">Patient : '+esc(i.patient)+'</span>':'')+'</td><td class="r">'+fmt(invTotal(i))+'</td></tr>'}).join('')+
+    '</tbody><tfoot><tr><td colspan="3">Total de la période · '+pl(f.list.length,'facture')+'</td><td class="r" data-total>'+fmt(f.total)+'</td></tr></tfoot></table>'+
+    '<p class="p-foot">Édité le '+dfr(today())+'.</p></div>';
+}
+function showDoc(title,html){
+  $('#ap-title').textContent=title; $('#paper').innerHTML=html;
+  $('#ap-print').hidden=EMBED;
+  $('#ap-note').textContent=EMBED?'L’impression est bloquée dans cet aperçu. Elle fonctionne dans la version installée.':'Format A4. Pour un PDF, choisissez « Enregistrer en PDF » ou, sur iPhone, écartez deux doigts sur l’aperçu d’impression puis partagez.';
+  $('#apercu').hidden=false;
+  if(!EMBED)try{window.print()}catch(e){}
+}
+
+/* ---------- Sauvegarde ---------- */
+function exportData(){
+  var stamp=new Date().toISOString();
+  var json=JSON.stringify({app:'carnet-dentaire',version:1,exporteLe:stamp,data:real},null,1);
+  var name='carnet-dentaire-sauvegarde-'+today()+'.json';
+  function done(){real.derniereSauvegarde=stamp;save();render();toast('Sauvegarde exportée : '+name)}
+  function viaLink(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},4000);done()}
+  var ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.platform||''));
+  if(ios&&navigator.canShare){
+    try{var file=new File([json],name,{type:'application/json'});
+      if(navigator.canShare({files:[file]})){navigator.share({files:[file]}).then(done).catch(function(e){if(!e||e.name!=='AbortError')viaLink()});return}
+    }catch(e){}
+  }
+  viaLink();
+}
+function restoreFrom(file){
+  var r=new FileReader();
+  r.onload=function(){
+    var d=null;try{var o=JSON.parse(r.result);d=normalize(o&&o.data?o.data:o)}catch(e){}
+    if(!d){toast('Ce fichier n’est pas une sauvegarde Carnet dentaire valide.');return}
+    ask('<strong>Restaurer cette sauvegarde ?</strong><p style="margin:8px 0 0">Elle contient '+pl(d.invoices.length,'facture')+' et '+pl(d.services.length,'prestation')+'. Elle <strong>remplacera</strong> les '+pl(real.invoices.length,'facture')+' actuellement sur cet appareil.</p>','Remplacer',function(){demo=null;real=d;save();render();toast('Sauvegarde restaurée : '+pl(d.invoices.length,'facture'))});
+  };
+  r.readAsText(file);
+}
+
+/* ---------- Démonstration (jamais enregistrée) ---------- */
+function startDemo(){
+  var d=fresh(),seed=7,t=today(),m=t.slice(0,7),last=+t.slice(8),n=0;
+  function rnd(){seed=(seed*1103515245+12345)%2147483648;return seed/2147483648}
+  d.cabinet.nom='Cabinet de démonstration';
+  for(var day=1;day<=last;day++){
+    var dow=toDate(m+'-'+pad(day)).getDay(); if(dow===5)continue;
+    var k=Math.floor(rnd()*4)+(day===last?1:0);
+    for(var j=0;j<k;j++){
+      var lines=[],c=1+Math.floor(rnd()*2);
+      for(var q=0;q<c;q++){var s=d.services[Math.floor(rnd()*d.services.length)];if(lines.some(function(l){return l.serviceId===s.id}))continue;lines.push({serviceId:s.id,libelle:s.nom,qte:rnd()<.2?2:1,prix:s.prix})}
+      n++;d.invoices.push({id:'demo'+n,numero:'DEMO-'+String(n).padStart(3,'0'),date:m+'-'+pad(day),patient:'',lignes:lines,creeLe:m+'-'+pad(day)+'T'+pad(9+j)+':00:00'});
+    }
+  }
+  demo=d; ui.day=t; location.hash='#tableau'; render(); window.scrollTo(0,0);
+}
+
+/* ---------- Actions ---------- */
+var ACT={
+  newInvoice:function(){openEditor(null)},
+  editInvoice:function(id){openEditor(id)},
+  openInvoice:function(id){invoiceDetail(id)},
+  closeEditor:function(){$('#editor').hidden=true;draft=null},
+  closeModal:function(){$('#modal').hidden=true},
+  closeApercu:function(){$('#apercu').hidden=true;$('#paper').innerHTML=''},
+  printNow:function(){try{window.print()}catch(e){}},
+  saveInvoice:saveInvoice,
+  addLine:function(){draft.lignes.push(blank());renderEditor();var s=$('#ln-svc-'+(draft.lignes.length-1));if(s)s.scrollIntoView({block:'center'})},
+  rmLine:function(i){if(draft.lignes.length>1){draft.lignes.splice(+i,1);renderEditor()}},
+  qty:function(i,el){var l=draft.lignes[+i];l.qte=Math.max(1,l.qte+(+el.dataset.d));$('#ln-qte-'+i).value=l.qte;updTotals()},
+  goToday:function(){ui.day=today();render()},
+  pickDay:function(d){ui.day=d;render()},
+  fMode:function(m){ui.fMode=m;render()},
+  printInvoice:function(id){var i=D().invoices.find(function(x){return x.id===id});if(i){$('#modal').hidden=true;showDoc('Facture '+i.numero,invoiceDoc(i))}},
+  printList:function(){var f=filtered();if(f.list.length)showDoc('Registre',registerDoc(f))},
+  deleteInvoice:function(id){var i=D().invoices.find(function(x){return x.id===id});if(!i)return;
+    ask('<strong>Supprimer la facture '+esc(i.numero)+' ?</strong><p style="margin:8px 0 0">'+fmt(invTotal(i))+' du '+dfr(i.date)+'. Cette action est définitive et son numéro ne sera pas réattribué.</p>','Supprimer',function(){D().invoices=D().invoices.filter(function(x){return x.id!==id});save();$('#modal').hidden=true;render();toast('Facture '+i.numero+' supprimée')})},
+  editService:function(id){serviceForm(id)},
+  saveService:function(id){
+    var nom=$('#svc-nom').value.trim(),raw=$('#svc-prix').value.trim(),prix=parseIntLoose(raw),e=$('#svc-err');
+    if(!nom||raw===''||!/\d/.test(raw)){e.textContent=!nom?'Indiquez le nom de la prestation.':'Indiquez un prix en dinars.';e.hidden=false;return}
+    var s=id?D().services.find(function(x){return x.id===id}):null;
+    if(s){if(s.nom!==nom||s.prix!==prix)s.exemple=false;s.nom=nom;s.prix=prix;s.actif=$('#svc-actif').checked}
+    else D().services.push({id:uid(),nom:nom,prix:prix,actif:$('#svc-actif').checked,exemple:false});
+    save();$('#modal').hidden=true;render();toast('Prestation enregistrée : '+nom+' · '+fmt(prix));
+  },
+  exportData:exportData,
+  pickRestore:function(){$('#restore-file').click()},
+  startDemo:startDemo,
+  quitDemo:function(){demo=null;render();toast('Démonstration fermée. Retour à vos données.')},
+  confirmNo:function(){$('#confirm').hidden=true;confirmCb=null},
+  confirmYes:function(){$('#confirm').hidden=true;var cb=confirmCb;confirmCb=null;if(cb)cb()}
+};
+document.addEventListener('click',function(e){var t=e.target.closest('[data-act]');if(!t||t.disabled)return;var f=ACT[t.dataset.act];if(f)f(t.dataset.id,t)});
+document.addEventListener('change',function(e){
+  var t=e.target;
+  if(t.id==='dash-date'&&t.value){ui.day=t.value;render()}
+  else if(t.id==='f-day'&&t.value){ui.fDay=t.value;render()}
+  else if(t.id==='f-month'&&/^\d{4}-\d\d$/.test(t.value)){ui.fMonth=t.value;render()}
+  else if(t.id==='f-from'&&t.value){ui.fFrom=t.value;render()}
+  else if(t.id==='f-to'&&t.value){ui.fTo=t.value;render()}
+  else if(t.dataset.cab){D().cabinet[t.dataset.cab]=t.value.trim();save();$('#cab-name').textContent=D().cabinet.nom;toast('Informations du cabinet enregistrées')}
+  else if(t.id==='restore-file'){if(t.files&&t.files[0])restoreFrom(t.files[0]);t.value=''}
+  else if(t.dataset.f==='svc'&&draft){
+    var l=draft.lignes[+t.dataset.i],s=D().services.find(function(x){return x.id===t.value});
+    if(s){l.serviceId=s.id;l.libelle=s.nom;l.prix=s.prix;$('#ln-prix-'+t.dataset.i).value=s.prix;updTotals()}
+  }
+  else if(t.dataset.f==='qte'&&draft){var q=Math.max(1,parseIntLoose(t.value));draft.lignes[+t.dataset.i].qte=q;t.value=q;updTotals()}
+});
+document.addEventListener('input',function(e){
+  var t=e.target; if(!draft)return;
+  if(t.id==='ed-numero')draft.numero=t.value;
+  else if(t.id==='ed-date')draft.date=t.value;
+  else if(t.id==='ed-patient')draft.patient=t.value;
+  else if(t.dataset.f==='prix'){draft.lignes[+t.dataset.i].prix=parseIntLoose(t.value);updTotals()}
+  else if(t.dataset.f==='qte'){draft.lignes[+t.dataset.i].qte=Math.max(1,parseIntLoose(t.value));updTotals()}
+});
+window.addEventListener('hashchange',function(){render();window.scrollTo(0,0)});
+render();
+if(!EMBED&&'serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(function(){});
+})();
+</script>

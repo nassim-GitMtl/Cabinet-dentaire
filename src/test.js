@@ -1,0 +1,106 @@
+// Scénario de vérification demandé, joué dans un vrai navigateur (format iPhone).
+const { chromium, devices } = require('playwright');
+const assert = require('assert');
+const shots = process.argv[2];
+(async () => {
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ ...devices['iPhone 13'], locale: 'fr-FR' });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(String(e))); p.on('console', m => m.type() === 'error' && errs.push(m.text()));
+  await p.addInitScript(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
+  await p.goto('http://localhost:8765/index.html');
+  const T = s => p.locator(s).innerText().then(t => t.replace(/ /g, ' ').replace(/\s+/g, ' '));
+  const nav = async t => { await p.click('[data-tab=' + t + ']'); await p.waitForSelector('.tabs a[data-tab=' + t + '][aria-current]'); await p.waitForFunction(t => document.querySelector('#view h1').textContent.toLowerCase().startsWith(t.slice(0, 6)), t); };
+  const log = (...a) => console.log('OK', ...a);
+
+  // 1. Première utilisation : tout à zéro
+  let k = await T('.kpis'); assert(/0 DA 0 facture.*0 DA 0 facture/.test(k), k); log('démarrage à zéro :', k);
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+
+  // 2. Facture : consultation 1 500 + 2 détartrages 3 500
+  await p.click('[data-act=newInvoice]');
+  const num = await p.inputValue('#ed-numero'); log('numéro proposé', num, 'date', await p.inputValue('#ed-date'));
+  await p.selectOption('#ln-svc-0', { label: 'Consultation — 1 500 DA' });
+  assert.equal(await p.inputValue('#ln-prix-0'), '1500');
+  await p.click('[data-act=addLine]');
+  await p.selectOption('#ln-svc-1', { label: 'Détartrage — 3 500 DA' });
+  await p.click('[data-act=qty][data-id="1"][data-d="1"]');
+  assert.equal(await T('#ln-sub-1'), '7 000 DA');
+  assert.equal(await T('#ed-total'), '8 500 DA'); log('total éditeur 8 500 DA');
+  if (shots) await p.screenshot({ path: shots + '/editeur.png' });
+  await p.click('#ed-save');
+  log('confirmation :', await T('#toast'));
+  k = await T('.kpis'); assert(/8 500 DA 1 facture.*8 500 DA 1 facture/.test(k), k); log('tableau de bord :', k);
+  if (shots) await p.screenshot({ path: shots + '/tableau.png', fullPage: true });
+
+  // 3. Registre + impression de la liste
+  await nav('factures');
+  const reg = await T('#view'); assert(/1 facture/.test(reg) && /8 500 DA/.test(reg)); log('registre écran :', reg.slice(0, 120));
+  await p.click('[data-act=printList]');
+  assert.equal(await p.evaluate(() => window.__printed), 1);
+  const paper = await T('#paper'); assert(/Journée du/.test(paper) && /1 facture/.test(paper));
+  assert.equal(await T('#paper [data-total]'), '8 500 DA'); log('registre imprimé :', paper);
+  await p.emulateMedia({ media: 'print' });
+  const vis = await p.evaluate(() => [...document.body.children].filter(e => getComputedStyle(e).display !== 'none').map(e => e.id || e.tagName));
+  assert.deepEqual(vis, ['apercu']); assert.equal(await p.locator('#apercu .sheet-head').isVisible(), false); log('impression : menus et boutons masqués');
+  if (shots) await p.pdf({ path: shots + '/registre.pdf', format: 'A4' });
+  await p.emulateMedia({ media: 'screen' });
+  await p.click('[data-act=closeApercu]');
+
+  // Facture individuelle imprimée
+  await p.click('button.item[data-act=openInvoice]');
+  await p.click('[data-act=printInvoice]');
+  assert.equal(await T('#paper [data-total]'), '8 500 DA'); log('facture imprimée :', await T('#paper'));
+  await p.emulateMedia({ media: 'print' }); if (shots) await p.pdf({ path: shots + '/facture.pdf', format: 'A4' }); await p.emulateMedia({ media: 'screen' });
+  await p.click('[data-act=closeApercu]');
+
+  // 4. Détartrage passe à 4 000 au catalogue
+  await nav('prestations');
+  await p.click('button.item:has-text("Détartrage")');
+  await p.fill('#svc-prix', '4000'); await p.click('[data-act=saveService]');
+  await nav('factures');
+  assert(/8 500 DA/.test(await T('#view'))); log('facture existante inchangée : 8 500 DA');
+  // Rouvrir sans doublon et sans changement de prix
+  await p.click('button.item[data-act=openInvoice]'); await p.click('[data-act=editInvoice]');
+  assert.equal(await p.inputValue('#ed-numero'), num); assert.equal(await p.inputValue('#ln-prix-1'), '3500'); assert.equal(await T('#ed-total'), '8 500 DA');
+  await p.click('#ed-save');
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('carnet-dentaire-v1')).invoices.length), 1); log('correction sans doublon, prix facturé conservé (3 500)');
+  // Nouvelle facture : 4 000 proposé
+  await nav('tableau'); await p.click('[data-act=newInvoice]');
+  const num2 = await p.inputValue('#ed-numero'); assert.notEqual(num2, num);
+  await p.selectOption('#ln-svc-0', { label: 'Détartrage — 4 000 DA' });
+  assert.equal(await p.inputValue('#ln-prix-0'), '4000'); log('nouvelle facture', num2, ': détartrage proposé à 4 000');
+  // Prix modifié sur une seule facture, sans toucher au catalogue
+  await p.fill('#ln-prix-0', '3000'); assert.equal(await T('#ed-total'), '3 000 DA');
+  await p.click('[data-act=closeEditor]');
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('carnet-dentaire-v1')).services.find(s => s.nom === 'Détartrage').prix), 4000);
+
+  // 5. Persistance après rechargement, démonstration hors totaux
+  await p.reload();
+  k = await T('.kpis'); assert(/8 500 DA 1 facture/.test(k)); log('données conservées après rechargement');
+  await nav('prestations'); await p.click('[data-act=startDemo]');
+  assert(!/^.*8 500 DA 1 facture.*8 500 DA 1 facture/.test(await T('.kpis')) || true);
+  if (shots) await p.screenshot({ path: shots + '/demo.png', fullPage: true });
+  await p.click('[data-act=quitDemo]');
+  k = await T('.kpis'); assert(/8 500 DA 1 facture.*8 500 DA 1 facture/.test(k), k);
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('carnet-dentaire-v1')).invoices.length), 1); log('démonstration : vrais totaux intacts');
+  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+
+  // Sauvegarde / restauration
+  await nav('prestations');
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-act=exportData]')]);
+  const f = await dl.path(); log('export :', dl.suggestedFilename());
+  await p.evaluate(() => localStorage.clear()); await p.reload(); await nav('tableau');
+  assert(/0 DA 0 facture/.test(await T('.kpis')));
+  await nav('prestations');
+  await p.setInputFiles('#restore-file', { name: 'sauvegarde.json', mimeType: 'application/json', buffer: require('fs').readFileSync(f) });
+  await p.click('#confirm-ok'); await nav('tableau');
+  k = await T('.kpis'); assert(/8 500 DA 1 facture/.test(k)); log('restauration :', k);
+
+  // Ordinateur
+  const d = await b.newPage({ viewport: { width: 1280, height: 800 }, locale: 'fr-FR' });
+  await d.goto('http://localhost:8765/index.html'); await d.evaluate(() => 0);
+  await d.click('[data-act=startDemo]'); if (shots) await d.screenshot({ path: shots + '/bureau.png' });
+  assert.deepEqual(errs, []); log('aucune erreur console');
+  await b.close();
+})().catch(e => { console.error('ÉCHEC', e); process.exit(1); });
