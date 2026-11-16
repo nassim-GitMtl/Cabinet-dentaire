@@ -561,7 +561,7 @@ function startDemo(){
 }
 
 /* ---------- Synchronisation entre appareils (Supabase) ---------- */
-var SUPA_URL='', SUPA_KEY='';   // à renseigner pour ne pas avoir à les saisir sur chaque appareil
+var SUPA_URL='', SUPA_KEY='sb_publishable_KtecPpudCqwzvDItFGc58g_ITkQdoQ_';   // à renseigner pour ne pas avoir à les saisir sur chaque appareil
 var SKEY='carnet-dentaire-session', YKEY='carnet-dentaire-sync';
 function readJ(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
 function writeJ(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
@@ -681,10 +681,9 @@ function syncPanel(){
       '<p class="small muted" id="sync-status" style="margin:0">'+esc(syncDetail())+'</p>'+
       '<div class="row"><button class="btn primary grow" data-act="syncNow">Synchroniser maintenant</button><button class="btn grow" data-act="signOut">Se déconnecter</button></div></section>';
   }
-  var hard=SUPA_URL&&SUPA_KEY;
   h+='<p style="margin:0">'+(sy.login?'Votre session a expiré. Reconnectez-vous pour reprendre la synchronisation ; rien n’est perdu sur cet appareil.':'Connectez le même compte sur votre iPhone et votre ordinateur pour y retrouver les mêmes factures. Sans connexion, la saisie continue et l’envoi se fait au retour du réseau.')+'</p>';
-  if(!hard)h+='<label>Adresse du projet Supabase<input id="sy-url" type="url" inputmode="url" autocapitalize="off" autocomplete="off" placeholder="https://xxxx.supabase.co" value="'+esc(sess&&sess.url||'')+'"></label>'+
-    '<label>Clé publique (publishable ou anon)<input id="sy-key" autocapitalize="off" autocomplete="off" value="'+esc(sess&&sess.key||'')+'"></label>';
+  if(!SUPA_URL)h+='<label>Adresse du projet Supabase<input id="sy-url" type="url" inputmode="url" autocapitalize="off" autocomplete="off" placeholder="https://xxxx.supabase.co" value="'+esc(sess&&sess.url||'')+'"></label>';
+  if(!SUPA_KEY)h+='<label>Clé publique (publishable ou anon)<input id="sy-key" autocapitalize="off" autocomplete="off" value="'+esc(sess&&sess.key||'')+'"></label>';
   h+='<label>E-mail<input id="sy-email" type="email" autocapitalize="off" autocomplete="username" value="'+esc(sess&&sess.email||'')+'"></label>'+
     '<label>Mot de passe<input id="sy-pass" type="password" autocomplete="current-password"></label>'+
     '<div class="err" id="sy-err"'+(sy.formErr?'':' hidden')+'>'+esc(sy.formErr)+'</div>'+
