@@ -14,7 +14,7 @@ const head = `<!doctype html>
 <meta name="apple-mobile-web-app-title" content="Carnet">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#152226" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#131c2e" media="(prefers-color-scheme: dark)">
 <meta name="format-detection" content="telephone=no">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="apple-touch-icon.png">
@@ -27,12 +27,12 @@ fs.writeFileSync(path.join(root, 'index.html'), head + body + '</body>\n</html>\
   const { chromium } = require('playwright');
   const b = await chromium.launch(), p = await b.newPage({ viewport: { width: 180, height: 180 } });
   await p.setContent(`<body style="margin:0"><svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
-    <rect width="180" height="180" fill="#0b6b74"/>
+    <rect width="180" height="180" fill="#1d5fd6"/>
     <rect x="46" y="34" width="88" height="112" rx="10" fill="#fff"/>
-    <rect x="60" y="56" width="60" height="8" rx="4" fill="#0b6b74"/>
-    <rect x="60" y="76" width="60" height="8" rx="4" fill="#8cc3c7"/>
-    <rect x="60" y="96" width="38" height="8" rx="4" fill="#8cc3c7"/>
-    <rect x="86" y="118" width="34" height="12" rx="6" fill="#0b6b74"/></svg></body>`);
+    <rect x="60" y="56" width="60" height="8" rx="4" fill="#1d5fd6"/>
+    <rect x="60" y="76" width="60" height="8" rx="4" fill="#9dbdf3"/>
+    <rect x="60" y="96" width="38" height="8" rx="4" fill="#9dbdf3"/>
+    <rect x="86" y="118" width="34" height="12" rx="6" fill="#1d5fd6"/></svg></body>`);
   await p.screenshot({ path: path.join(root, 'apple-touch-icon.png') });
   await b.close();
 })();
