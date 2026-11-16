@@ -471,7 +471,7 @@ function filtered(){
   return {list:list,label:label,total:sumInv(list),recu:sumRecu(list)};
 }
 function viewFactures(){
-  var f=filtered(),h='<div class="head"><h1>Factures</h1></div>';
+  var f=filtered(),na=archived().length,h='<div class="head"><h1>Factures</h1><button class="btn" data-act="showArchives">Archives'+(na?' ('+na+')':'')+'</button></div>';
   h+='<div class="seg" role="group" aria-label="Type de période">'+[['jour','Journée'],['mois','Mois'],['plage','Période']].map(function(m){return '<button data-act="fMode" data-id="'+m[0]+'" aria-pressed="'+(ui.fMode===m[0])+'">'+m[1]+'</button>'}).join('')+'</div>';
   if(ui.fMode==='jour')h+='<label>Journée<input type="date" id="f-day" value="'+ui.fDay+'"></label>';
   else if(ui.fMode==='mois')h+='<label>Mois<input type="month" id="f-month" value="'+ui.fMonth+'" placeholder="AAAA-MM"></label>';
@@ -482,7 +482,6 @@ function viewFactures(){
   if(f.list.length)h+='<div class="list">'+f.list.map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">'+esc(lignesTxt(i))+etatPill(i)+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div>';
   else h+='<div class="empty">Aucune facture sur cette période.</div>';
   h+='</section>';
-  var na=archived().length;if(na)h+='<button class="btn ghost" data-act="showArchives">Archives : '+pl(na,'facture supprimée')+'</button>';
   $('#view').innerHTML=h;
 }
 
@@ -910,7 +909,7 @@ var ACT={
   restoreInvoice:function(id){var i=D().invoices.find(function(x){return x.id===id});if(!i||!i.archive)return;delete i.archive;i.maj=new Date().toISOString();save();mark('invoice',id);$('#modal').hidden=true;render();toast('Facture '+i.numero+' restaurée')},
   showArchives:function(){
     $('#modal-title').textContent='Archives';
-    $('#modal-body').innerHTML='<p class="small muted" style="margin:0">Factures supprimées, de la plus récente à la plus ancienne. Elles ne comptent dans aucun total.</p><section class="panel"><div class="list">'+archived().map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">Supprimée le '+dfr(String(i.archive.le).slice(0,10))+(i.archive.motif?' · '+esc(i.archive.motif):'')+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div></section>';
+    $('#modal-body').innerHTML='<p class="small muted" style="margin:0">Factures supprimées, de la plus récente à la plus ancienne. Elles ne comptent dans aucun total.</p><section class="panel"><div class="list">'+(archived().length?'':'<div class="empty">Aucune facture supprimée pour l’instant. Quand vous supprimez une facture, elle arrive ici.</div>')+archived().map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">Supprimée le '+dfr(String(i.archive.le).slice(0,10))+(i.archive.motif?' · '+esc(i.archive.motif):'')+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div></section>';
     $('#modal').hidden=false},
   editService:function(id){serviceForm(id)},
   saveService:function(id){
