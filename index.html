@@ -20,7 +20,7 @@
 /* Mise en page : une colonne sur téléphone avec barre d'onglets en bas ; sur ordinateur, navigation à gauche et tableau de bord sur deux colonnes. */
 :root{
   --bg:#ffffff; --surface:#ffffff; --ink:#0b0e3f; --muted:#5a5f80; --line:#e1e3f3;
-  --accent:#1014ef; --accent-ink:#ffffff; --accent-soft:#e8e9fe; --bar:#a9abf9;
+  --accent:#0000ff; --accent-ink:#ffffff; --accent-soft:#e8e9fe; --bar:#a9abf9;
   --warn:#8a5200; --warn-soft:#fcf0d6; --danger:#b3261e; --shade:rgba(15,31,58,.45);
   --paper:#ffffff; --paper-ink:#111111; --paper-line:#8a8a8a;
   --f-text:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -285,7 +285,7 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--accent);box
 <script>
 (function(){
 'use strict';
-var KEY='carnet-dentaire-v1', BUILD='2026-11-16 23:39 UTC', newer=false, lastCheck=0;
+var KEY='carnet-dentaire-v1', BUILD='2026-11-16 23:41 UTC', newer=false, lastCheck=0;
 var EMBED=false; try{EMBED=window.self!==window.top}catch(e){EMBED=true}
 var $=function(s){return document.querySelector(s)};
 var MODES={especes:'Espèces',carte:'Carte',cheque:'Chèque',virement:'Virement'};

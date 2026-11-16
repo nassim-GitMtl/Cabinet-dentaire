@@ -29,12 +29,12 @@ fs.writeFileSync(path.join(root, 'version.json'), JSON.stringify({ build }) + '\
   const { chromium } = require('playwright');
   const b = await chromium.launch(), p = await b.newPage({ viewport: { width: 180, height: 180 } });
   await p.setContent(`<body style="margin:0"><svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
-    <rect width="180" height="180" fill="#1014ef"/>
+    <rect width="180" height="180" fill="#0000ff"/>
     <rect x="46" y="34" width="88" height="112" rx="10" fill="#fff"/>
-    <rect x="60" y="56" width="60" height="8" rx="4" fill="#1014ef"/>
+    <rect x="60" y="56" width="60" height="8" rx="4" fill="#0000ff"/>
     <rect x="60" y="76" width="60" height="8" rx="4" fill="#a9abf9"/>
     <rect x="60" y="96" width="38" height="8" rx="4" fill="#a9abf9"/>
-    <rect x="86" y="118" width="34" height="12" rx="6" fill="#1014ef"/></svg></body>`);
+    <rect x="86" y="118" width="34" height="12" rx="6" fill="#0000ff"/></svg></body>`);
   await p.screenshot({ path: path.join(root, 'apple-touch-icon.png') });
   await b.close();
 })();
