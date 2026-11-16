@@ -1,5 +1,5 @@
 // Carnet dentaire : permet d'ouvrir l'application sans connexion (réseau d'abord, copie locale sinon).
-const CACHE = 'carnet-dentaire-v1';
+const CACHE = 'carnet-dentaire-v2';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', './apple-touch-icon.png'])).then(() => self.skipWaiting()));
 });
@@ -7,7 +7,7 @@ self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request).then(r => {
+    fetch(e.request, e.request.mode === 'navigate' ? { cache: 'no-cache' } : undefined).then(r => {
       if (r.ok && new URL(e.request.url).origin === location.origin) {
         const copy = r.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));

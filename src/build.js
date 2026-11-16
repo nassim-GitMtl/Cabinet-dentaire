@@ -21,7 +21,9 @@ const head = `<!doctype html>
 </head>
 <body>
 `;
-fs.writeFileSync(path.join(root, 'index.html'), head + body + '</body>\n</html>\n');
+const d = new Date(), build = d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+fs.writeFileSync(path.join(root, 'index.html'), (head + body + '</body>\n</html>\n').replace('__BUILD__', build));
+fs.writeFileSync(path.join(root, 'version.json'), JSON.stringify({ build }) + '\n');
 
 (async () => {
   const { chromium } = require('playwright');

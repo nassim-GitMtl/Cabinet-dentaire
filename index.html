@@ -284,7 +284,7 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--accent);box
 <script>
 (function(){
 'use strict';
-var KEY='carnet-dentaire-v1';
+var KEY='carnet-dentaire-v1', BUILD='2026-11-16 23:36 UTC', newer=false, lastCheck=0;
 var EMBED=false; try{EMBED=window.self!==window.top}catch(e){EMBED=true}
 var $=function(s){return document.querySelector(s)};
 var MODES={especes:'Espèces',carte:'Carte',cheque:'Chèque',virement:'Virement'};
@@ -399,6 +399,7 @@ function render(){
   }
   $('#cab-name').textContent=D().cabinet.nom||'';
   var b='';
+  if(newer)b+='<div class="banner"><span>Une nouvelle version de l’application est disponible.</span><button class="btn" data-act="reloadApp">Mettre à jour</button></div>';
   if(!storageOK)b+='<div class="banner"><span>Le stockage de ce navigateur est indisponible (navigation privée ?). Vos saisies ne seront pas conservées.</span></div>';
   var seen={},dups={};live().forEach(function(i){var k=i.numero.trim().toLowerCase();if(seen[k])dups[i.numero]=1;seen[k]=1});
   if(Object.keys(dups).length)b+='<div class="banner"><span>Numéro en double (factures créées sur deux appareils sans connexion) : '+esc(Object.keys(dups).join(', '))+'. Ouvrez l’une des deux et changez son numéro.</span></div>';
@@ -501,6 +502,7 @@ function viewPrestations(){
     '<p class="small muted" style="margin:0">'+pl(live().length,'facture')+' enregistrée'+(live().length>1?'s':'')+(archived().length?' · '+pl(archived().length,'archivée'):'')+' · Dernière sauvegarde : '+(real.derniereSauvegarde?dfr(real.derniereSauvegarde.slice(0,10)):'jamais')+'</p>'+
     '<div class="row"><button class="btn primary grow" data-act="exportData"'+(EMBED?' disabled':'')+'>Exporter une sauvegarde</button><button class="btn grow" data-act="pickRestore">Restaurer une sauvegarde</button></div></section>';
   h+=syncPanel();
+  if(!EMBED)h+='<p class="small muted" style="margin:0;text-align:center">Version '+esc(BUILD)+'</p>';
   $('#view').innerHTML=h;
 }
 function serviceForm(id){
@@ -715,6 +717,10 @@ function applyRemote(r){
   var loc=localOf(r.kind,r.id),lm=loc?(loc.maj||''):syn.tombs[key],rm=d.maj||'';
   if(lm!=null&&lm>=rm)return false;
   var arr=r.kind==='invoice'?real.invoices:real.services,ix=arr.indexOf(loc);
+  if(r.deleted&&r.kind==='invoice'&&loc){
+    if(!loc.archive)loc.archive={le:rm||new Date().toISOString(),motif:'Supprimée depuis un autre appareil'};
+    loc.maj=new Date().toISOString();delete syn.tombs[key];syn.dirty[key]=1;return true;
+  }
   if(r.deleted){if(ix>=0)arr.splice(ix,1);syn.tombs[key]=rm}
   else{if(ix>=0)arr[ix]=d;else arr.push(d);delete syn.tombs[key]}
   delete syn.dirty[key];
@@ -920,6 +926,7 @@ var ACT={
     else{s={id:uid(),nom:nom,prix:prix,actif:$('#svc-actif').checked,exemple:false};D().services.push(s)}
     s.maj=new Date().toISOString();save();mark('service',s.id);$('#modal').hidden=true;render();toast('Prestation enregistrée : '+nom+' · '+fmt(prix));
   },
+  reloadApp:function(){location.reload()},
   signOut:signOut, wipeDevice:wipeDevice, saveOnboard:saveOnboard, exportCsv:exportCsv,
   gateAlt:function(){if(gateMode==='newpass')recovery=null;gateSet(gateMode==='in'?'up':'in')},
   gateForgot:function(){gateSet('forgot')},
@@ -959,6 +966,15 @@ document.addEventListener('input',function(e){
 document.addEventListener('submit',function(e){if(e.target.id==='gate-form'){e.preventDefault();gateSubmit()}});
 setInterval(function(){if(!document.hidden)sync()},120000);
 window.addEventListener('hashchange',function(){render();window.scrollTo(0,0);var v=$('#view');v.classList.remove('entre');void v.offsetWidth;v.classList.add('entre')});
+function checkVersion(){
+  if(EMBED||newer||location.protocol==='file:'||Date.now()-lastCheck<300000)return;
+  lastCheck=Date.now();
+  fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+    if(j&&j.build&&j.build!==BUILD){newer=true;if($('#editor').hidden&&$('#modal').hidden&&$('#apercu').hidden)render()}
+  }).catch(function(){});
+}
+document.addEventListener('visibilitychange',function(){if(!document.hidden)checkVersion()});
+setInterval(checkVersion,600000);checkVersion();
 authHash();
 render();
 sync();window.addEventListener('online',function(){sync()});document.addEventListener('visibilitychange',function(){if(!document.hidden)sync()});
