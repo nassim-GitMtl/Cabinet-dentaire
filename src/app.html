@@ -43,6 +43,7 @@ label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:500;
 .top-in{display:flex;align-items:baseline;gap:10px;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .brand{font:800 17px var(--f-display);color:var(--accent)}
 .cab{font-size:13px;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.syncdot{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;background:var(--surface);border-top:1px solid var(--line);
   padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 .tabs a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 8px;min-height:56px;font-size:12px;font-weight:500;color:var(--muted);text-decoration:none}
@@ -177,7 +178,7 @@ button.item{width:100%;background:none;border:0;border-top:1px solid var(--line)
 @media (prefers-reduced-motion:no-preference){.btn,.seg button{transition:background-color .12s}}
 </style>
 
-<header class="top"><div class="top-in"><span class="brand">Carnet dentaire</span><span class="cab" id="cab-name"></span></div></header>
+<header class="top"><div class="top-in"><span class="brand">Carnet dentaire</span><span class="cab" id="cab-name"></span><span class="syncdot" id="sync-dot"></span></div></header>
 
 <main>
   <div id="banners"></div>
@@ -232,9 +233,10 @@ function normalize(d){
   if(!d||typeof d!=='object'||!Array.isArray(d.services)||!Array.isArray(d.invoices))return null;
   d.cabinet=Object.assign(f.cabinet,d.cabinet||{});
   d.compteur=d.compteur||{}; d.version=1;
-  d.services.forEach(function(s){s.prix=Math.max(0,Math.round(+s.prix||0));s.actif=s.actif!==false;s.nom=String(s.nom||'')});
+  d.services.forEach(function(s){s.prix=Math.max(0,Math.round(+s.prix||0));s.actif=s.actif!==false;s.nom=String(s.nom||'');if(!s.maj&&s.exemple===false)s.maj='2000-01-01T00:00:00.000Z'});
   d.invoices=d.invoices.filter(function(i){return i&&i.id&&/^\d{4}-\d\d-\d\d$/.test(i.date)&&Array.isArray(i.lignes)});
   d.invoices.forEach(function(i){i.numero=String(i.numero||'');i.patient=i.patient||'';
+    if(!i.maj)i.maj=i.modifieLe||i.creeLe||'2000-01-01T00:00:00.000Z';
     i.lignes.forEach(function(l){l.qte=Math.max(1,Math.round(+l.qte||1));l.prix=Math.max(0,Math.round(+l.prix||0));l.libelle=String(l.libelle||'')})});
   return d;
 }
@@ -313,6 +315,9 @@ function render(){
   var b='';
   if(demo)b+='<div class="banner"><span>Démonstration : données fictives, rien n’est enregistré et vos vrais totaux ne sont pas touchés.</span><button class="btn" data-act="quitDemo">Quitter la démonstration</button></div>';
   if(!storageOK)b+='<div class="banner"><span>Le stockage de ce navigateur est indisponible (navigation privée ?). Vos saisies ne seront pas conservées.</span></div>';
+  var seen={},dups={};D().invoices.forEach(function(i){var k=i.numero.trim().toLowerCase();if(seen[k])dups[i.numero]=1;seen[k]=1});
+  if(Object.keys(dups).length)b+='<div class="banner"><span>Numéro en double (factures créées sur deux appareils sans connexion) : '+esc(Object.keys(dups).join(', '))+'. Ouvrez l’une des deux et changez son numéro.</span></div>';
+  updSyncUI();
   if(EMBED)b+='<div class="banner"><span>Aperçu : l’impression et le fichier de sauvegarde ne fonctionnent que dans la version installée (fichier livré).</span></div>';
   $('#banners').innerHTML=b; $('#banners').hidden=!b;
   $('#banners').style.cssText='display:flex;flex-direction:column;gap:8px';
@@ -405,10 +410,11 @@ function viewPrestations(){
     '<label>Adresse<input id="cab-adresse" data-cab="adresse" value="'+esc(c.adresse)+'"></label>'+
     '<label>Téléphone<input id="cab-tel" data-cab="tel" type="tel" value="'+esc(c.tel)+'"></label>'+
     '<label>Mentions (NIF, NIS, n° d’ordre…)<textarea id="cab-mentions" data-cab="mentions">'+esc(c.mentions)+'</textarea></label></section>';
-  h+='<section class="panel"><h2>Données et sauvegarde</h2><p style="margin:0">Vos factures et tarifs sont enregistrés <strong>dans ce navigateur, sur cet appareil uniquement</strong>. Rien n’est envoyé sur Internet. Effacer les données du site ou changer de téléphone les fait disparaître : exportez une sauvegarde régulièrement.</p>'+
+  h+='<section class="panel"><h2>Données et sauvegarde</h2><p style="margin:0">Vos factures et tarifs sont enregistrés <strong>dans ce navigateur, sur cet appareil uniquement</strong>. '+(sess?'Une copie est aussi synchronisée avec votre compte Supabase.':'Rien n’est envoyé sur Internet.')+' Effacer les données du site ou changer de téléphone les fait disparaître : exportez une sauvegarde régulièrement.</p>'+
     '<p class="small muted" style="margin:0">'+pl(real.invoices.length,'facture')+' enregistrée'+(real.invoices.length>1?'s':'')+' · Dernière sauvegarde : '+(real.derniereSauvegarde?dfr(real.derniereSauvegarde.slice(0,10)):'jamais')+'</p>'+
     '<div class="row"><button class="btn primary grow" data-act="exportData"'+(EMBED?' disabled':'')+'>Exporter une sauvegarde</button><button class="btn grow" data-act="pickRestore">Restaurer une sauvegarde</button></div>'+
     (demo?'':'<button class="btn ghost" data-act="startDemo">Voir une démonstration (données fictives)</button>')+'</section>';
+  h+=syncPanel();
   $('#view').innerHTML=h;
 }
 function serviceForm(id){
@@ -472,11 +478,11 @@ function saveInvoice(){
   else if(!lines.length)err='Choisissez au moins une prestation.';
   if(err){edErr=err;var e=$('#ed-err');e.textContent=err;e.hidden=false;e.scrollIntoView({block:'center'});return}
   var now=new Date().toISOString(),rec={id:draft.id||uid(),numero:num,date:draft.date,patient:draft.patient.trim(),
-    lignes:lines.map(function(l){return {serviceId:l.serviceId,libelle:l.libelle,qte:Math.max(1,l.qte),prix:Math.max(0,l.prix)}}),creeLe:draft.creeLe||now,modifieLe:now};
+    lignes:lines.map(function(l){return {serviceId:l.serviceId,libelle:l.libelle,qte:Math.max(1,l.qte),prix:Math.max(0,l.prix)}}),creeLe:draft.creeLe||now,modifieLe:now,maj:now};
   var list=D().invoices,ix=list.findIndex(function(i){return i.id===rec.id}),isNew=ix<0;
   if(isNew)list.push(rec);else list[ix]=rec;
   var m=/^F-(\d{4})-(\d+)$/.exec(num);if(m)D().compteur[m[1]]=Math.max(D().compteur[m[1]]||0,+m[2]);
-  save(); $('#editor').hidden=true; draft=null; render();
+  save(); mark('invoice',rec.id); if(m)mark('meta','cabinet'); $('#editor').hidden=true; draft=null; render();
   toast('Facture '+num+(isNew?' enregistrée':' corrigée')+' · '+fmt(invTotal(rec)));
 }
 
@@ -529,7 +535,10 @@ function restoreFrom(file){
   r.onload=function(){
     var d=null;try{var o=JSON.parse(r.result);d=normalize(o&&o.data?o.data:o)}catch(e){}
     if(!d){toast('Ce fichier n’est pas une sauvegarde Carnet dentaire valide.');return}
-    ask('<strong>Restaurer cette sauvegarde ?</strong><p style="margin:8px 0 0">Elle contient '+pl(d.invoices.length,'facture')+' et '+pl(d.services.length,'prestation')+'. Elle <strong>remplacera</strong> les '+pl(real.invoices.length,'facture')+' actuellement sur cet appareil.</p>','Remplacer',function(){demo=null;real=d;save();render();toast('Sauvegarde restaurée : '+pl(d.invoices.length,'facture'))});
+    ask('<strong>Restaurer cette sauvegarde ?</strong><p style="margin:8px 0 0">Elle contient '+pl(d.invoices.length,'facture')+' et '+pl(d.services.length,'prestation')+'. Elle <strong>remplacera</strong> les '+pl(real.invoices.length,'facture')+' actuellement sur cet appareil.</p>','Remplacer',function(){demo=null;var old=real,now=new Date().toISOString(),keep={};
+      d.invoices.forEach(function(i){i.maj=now;keep['invoice:'+i.id]=1});d.services.forEach(function(x){x.maj=now;keep['service:'+x.id]=1});d.cabinet.maj=now;
+      old.invoices.forEach(function(i){if(!keep['invoice:'+i.id])syn.tombs['invoice:'+i.id]=now});old.services.forEach(function(x){if(!keep['service:'+x.id])syn.tombs['service:'+x.id]=now});
+      real=d;save();if(sess){Object.keys(keep).concat(Object.keys(syn.tombs)).forEach(function(k){syn.dirty[k]=1});mark('meta','cabinet')}render();toast('Sauvegarde restaurée : '+pl(d.invoices.length,'facture'))});
   };
   r.readAsText(file);
 }
@@ -551,6 +560,155 @@ function startDemo(){
   demo=d; ui.day=t; location.hash='#tableau'; render(); window.scrollTo(0,0);
 }
 
+/* ---------- Synchronisation entre appareils (Supabase) ---------- */
+var SUPA_URL='', SUPA_KEY='';   // à renseigner pour ne pas avoir à les saisir sur chaque appareil
+var SKEY='carnet-dentaire-session', YKEY='carnet-dentaire-sync';
+function readJ(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
+function writeJ(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+var sess=readJ(SKEY), syn=readJ(YKEY)||{cursor:null,dirty:{},tombs:{}};
+var sy={busy:false,err:'',last:null,again:false,login:false,timer:null,formErr:''};
+function cfg(){return {url:(SUPA_URL||(sess&&sess.url)||'').replace(/\/+$/,''),key:SUPA_KEY||(sess&&sess.key)||''}}
+function mark(kind,id){if(demo)return;if(!sess){writeJ(YKEY,syn);return}syn.dirty[kind+':'+id]=1;writeJ(YKEY,syn);queueSync()}
+function queueSync(){clearTimeout(sy.timer);sy.timer=setTimeout(sync,1200);updSyncUI()}
+function pending(){return Object.keys(syn.dirty).length}
+function syncLabel(){
+  if(!sess)return '';
+  if(sy.login)return 'Reconnexion requise';
+  if(sy.busy)return 'Synchronisation…';
+  if(sy.err||pending())return 'En attente ('+pending()+')';
+  return 'Synchronisé';
+}
+function updSyncUI(){var e=$('#sync-dot');if(e)e.textContent=demo?'':syncLabel();var st=$('#sync-status');if(st)st.textContent=syncDetail()}
+function syncDetail(){
+  var l=syncLabel();
+  if(sy.err&&!sy.login)l+=' · '+sy.err;
+  if(sy.last&&!sy.busy)l+=' · dernière synchronisation à '+pad(sy.last.getHours())+':'+pad(sy.last.getMinutes());
+  return l;
+}
+function api(path,o){
+  o=o||{};var c=o.cfg||cfg(),h={apikey:c.key,'Content-Type':'application/json'};
+  if(o.auth!==false&&sess&&sess.access_token)h.Authorization='Bearer '+sess.access_token;
+  if(o.prefer)h.Prefer=o.prefer;
+  return fetch(c.url+path,{method:o.method||'GET',headers:h,body:o.body?JSON.stringify(o.body):undefined}).then(function(r){return r.text().then(function(t){
+    var j=null;try{j=t?JSON.parse(t):null}catch(e){}
+    if(!r.ok){var er=new Error((j&&(j.msg||j.message||j.error_description||j.error))||('Erreur '+r.status));er.status=r.status;throw er}
+    return j})});
+}
+function setSession(j,base){
+  sess={url:base.url,key:base.key,access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Date.now()+(j.expires_in||3600)*1000,user_id:j.user&&j.user.id||base.user_id,email:j.user&&j.user.email||base.email};
+  writeJ(SKEY,sess);
+}
+function ensureToken(){
+  if(sess.access_token&&Date.now()<sess.expires_at-60000)return Promise.resolve();
+  return api('/auth/v1/token?grant_type=refresh_token',{method:'POST',auth:false,body:{refresh_token:sess.refresh_token}}).then(function(j){setSession(j,sess)},
+    function(e){if(e.status>=400&&e.status<500){sy.login=true}throw e});
+}
+function markAll(){
+  real.invoices.forEach(function(i){syn.dirty['invoice:'+i.id]=1});
+  real.services.forEach(function(s){if(s.maj)syn.dirty['service:'+s.id]=1});
+  Object.keys(syn.tombs).forEach(function(k){syn.dirty[k]=1});
+  syn.dirty['meta:cabinet']=1;
+}
+function localOf(kind,id){return (kind==='invoice'?real.invoices:real.services).find(function(x){return x.id===id})}
+function applyRemote(r){
+  var key=r.kind+':'+r.id,d=r.data||{};
+  if(r.kind==='meta'){
+    var ch=false,rc=d.compteur||{};
+    Object.keys(rc).forEach(function(y){if((real.compteur[y]||0)<rc[y]){real.compteur[y]=rc[y];ch=true}});
+    if(d.cabinet&&(d.cabinet.maj||'')>(real.cabinet.maj||'')){real.cabinet=Object.assign({nom:'',praticien:'',adresse:'',tel:'',mentions:''},d.cabinet);delete syn.dirty[key];ch=true}
+    return ch;
+  }
+  if(r.kind!=='invoice'&&r.kind!=='service')return false;
+  var loc=localOf(r.kind,r.id),lm=loc?(loc.maj||''):syn.tombs[key],rm=d.maj||'';
+  if(lm!=null&&lm>=rm)return false;
+  var arr=r.kind==='invoice'?real.invoices:real.services,ix=arr.indexOf(loc);
+  if(r.deleted){if(ix>=0)arr.splice(ix,1);syn.tombs[key]=rm}
+  else{if(ix>=0)arr[ix]=d;else arr.push(d);delete syn.tombs[key]}
+  delete syn.dirty[key];
+  return true;
+}
+function pull(){
+  var off=0,last=syn.cursor,changed=false;
+  function page(){
+    return api('/rest/v1/carnet_items?select=kind,id,data,deleted,updated_at&order=updated_at.asc,kind.asc,id.asc&limit=1000&offset='+off+(syn.cursor?'&updated_at=gt.'+encodeURIComponent(syn.cursor):'')).then(function(rows){
+      rows.forEach(function(r){if(applyRemote(r))changed=true;last=r.updated_at});
+      if(rows.length===1000){off+=1000;return page()}
+      syn.cursor=last;
+      if(changed){normalize(real);save()}
+      writeJ(YKEY,syn);
+      return changed;
+    });
+  }
+  return page();
+}
+function push(){
+  var rows=[],snap={};
+  Object.keys(syn.dirty).forEach(function(key){
+    var p=key.indexOf(':'),kind=key.slice(0,p),id=key.slice(p+1),row=null;
+    if(kind==='meta')row={data:{cabinet:real.cabinet,compteur:real.compteur},deleted:false},snap[key]=real.cabinet.maj||'';
+    else{var loc=localOf(kind,id);
+      if(loc)row={data:loc,deleted:false},snap[key]=loc.maj||'';
+      else if(syn.tombs[key])row={data:{maj:syn.tombs[key]},deleted:true},snap[key]=syn.tombs[key];
+      else{delete syn.dirty[key];return}}
+    row.user_id=sess.user_id;row.kind=kind;row.id=id;rows.push(row);
+  });
+  function chunk(i){
+    if(i>=rows.length)return Promise.resolve();
+    var part=rows.slice(i,i+300);
+    return api('/rest/v1/carnet_items?on_conflict=user_id,kind,id',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',body:part}).then(function(){
+      part.forEach(function(r){var key=r.kind+':'+r.id,cur=r.kind==='meta'?(real.cabinet.maj||''):(localOf(r.kind,r.id)||{}).maj||syn.tombs[key]||'';if(cur===snap[key])delete syn.dirty[key]});
+      writeJ(YKEY,syn);return chunk(i+300)});
+  }
+  return chunk(0);
+}
+function sync(){
+  if(!sess||demo||EMBED||sy.login)return Promise.resolve();
+  if(sy.busy){sy.again=true;return Promise.resolve()}
+  sy.busy=true;updSyncUI();
+  return ensureToken().then(pull).then(function(changed){return push().then(function(){return changed})}).then(function(changed){
+    sy.err='';sy.last=new Date();
+    var a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&$('#view').contains(a);
+    if(changed&&!demo&&!typing)render();
+  },function(e){sy.err=sy.login?'':(navigator.onLine===false?'hors connexion':(e&&e.message)||'erreur réseau');if(sy.login&&ui.view==='prestations')render()})
+  .then(function(){sy.busy=false;updSyncUI();if(sy.again){sy.again=false;queueSync()}});
+}
+function syncPanel(){
+  if(demo)return '';
+  var h='<section class="panel"><h2>Synchronisation entre appareils</h2>';
+  if(EMBED)return h+'<p class="muted" style="margin:0">Indisponible dans cet aperçu. Elle fonctionne dans la version installée.</p></section>';
+  if(sess&&!sy.login){
+    return h+'<p style="margin:0">Connecté : <strong>'+esc(sess.email||'')+'</strong>. Vos factures et tarifs sont copiés sur votre compte Supabase et retrouvés sur chaque appareil connecté au même compte.</p>'+
+      '<p class="small muted" id="sync-status" style="margin:0">'+esc(syncDetail())+'</p>'+
+      '<div class="row"><button class="btn primary grow" data-act="syncNow">Synchroniser maintenant</button><button class="btn grow" data-act="signOut">Se déconnecter</button></div></section>';
+  }
+  var hard=SUPA_URL&&SUPA_KEY;
+  h+='<p style="margin:0">'+(sy.login?'Votre session a expiré. Reconnectez-vous pour reprendre la synchronisation ; rien n’est perdu sur cet appareil.':'Connectez le même compte sur votre iPhone et votre ordinateur pour y retrouver les mêmes factures. Sans connexion, la saisie continue et l’envoi se fait au retour du réseau.')+'</p>';
+  if(!hard)h+='<label>Adresse du projet Supabase<input id="sy-url" type="url" inputmode="url" autocapitalize="off" autocomplete="off" placeholder="https://xxxx.supabase.co" value="'+esc(sess&&sess.url||'')+'"></label>'+
+    '<label>Clé publique (publishable ou anon)<input id="sy-key" autocapitalize="off" autocomplete="off" value="'+esc(sess&&sess.key||'')+'"></label>';
+  h+='<label>E-mail<input id="sy-email" type="email" autocapitalize="off" autocomplete="username" value="'+esc(sess&&sess.email||'')+'"></label>'+
+    '<label>Mot de passe<input id="sy-pass" type="password" autocomplete="current-password"></label>'+
+    '<div class="err" id="sy-err"'+(sy.formErr?'':' hidden')+'>'+esc(sy.formErr)+'</div>'+
+    '<button class="btn primary" data-act="signIn">Se connecter</button></section>';
+  return h;
+}
+function signIn(){
+  var base={url:(SUPA_URL||($('#sy-url')||{}).value||'').trim().replace(/\/+$/,''),key:(SUPA_KEY||($('#sy-key')||{}).value||'').trim()};
+  var email=$('#sy-email').value.trim(),pass=$('#sy-pass').value;
+  function fail(m){sy.formErr=m;var e=$('#sy-err');e.textContent=m;e.hidden=false}
+  if(!/^https:\/\/|^http:\/\/localhost/.test(base.url)||!base.key)return fail('Indiquez l’adresse du projet (https://…) et la clé publique.');
+  if(!email||!pass)return fail('Indiquez l’e-mail et le mot de passe.');
+  api('/auth/v1/token?grant_type=password',{method:'POST',auth:false,cfg:base,body:{email:email,password:pass}}).then(function(j){
+    sy.formErr='';sy.login=false;sy.err='';setSession(j,base);
+    syn.cursor=null;syn.dirty={};markAll();writeJ(YKEY,syn);
+    render();toast('Connecté. Synchronisation en cours…');sync();
+  },function(e){fail(e.status===400?'E-mail ou mot de passe incorrect.':'Connexion impossible : '+e.message)});
+}
+function signOut(){
+  var n=pending();
+  ask('<strong>Se déconnecter ?</strong><p style="margin:8px 0 0">Les données restent sur cet appareil mais ne seront plus synchronisées.'+(n?' <strong>'+pl(n,'modification')+' pas encore envoyée'+(n>1?'s':'')+'.</strong>':'')+'</p>','Se déconnecter',function(){
+    sess=null;writeJ(SKEY,null);syn.cursor=null;syn.dirty={};writeJ(YKEY,syn);sy.login=false;sy.err='';render()});
+}
+
 /* ---------- Actions ---------- */
 var ACT={
   newInvoice:function(){openEditor(null)},
@@ -570,16 +728,17 @@ var ACT={
   printInvoice:function(id){var i=D().invoices.find(function(x){return x.id===id});if(i){$('#modal').hidden=true;showDoc('Facture '+i.numero,invoiceDoc(i))}},
   printList:function(){var f=filtered();if(f.list.length)showDoc('Registre',registerDoc(f))},
   deleteInvoice:function(id){var i=D().invoices.find(function(x){return x.id===id});if(!i)return;
-    ask('<strong>Supprimer la facture '+esc(i.numero)+' ?</strong><p style="margin:8px 0 0">'+fmt(invTotal(i))+' du '+dfr(i.date)+'. Cette action est définitive et son numéro ne sera pas réattribué.</p>','Supprimer',function(){D().invoices=D().invoices.filter(function(x){return x.id!==id});save();$('#modal').hidden=true;render();toast('Facture '+i.numero+' supprimée')})},
+    ask('<strong>Supprimer la facture '+esc(i.numero)+' ?</strong><p style="margin:8px 0 0">'+fmt(invTotal(i))+' du '+dfr(i.date)+'. Cette action est définitive et son numéro ne sera pas réattribué.</p>','Supprimer',function(){D().invoices=D().invoices.filter(function(x){return x.id!==id});save();if(!demo){syn.tombs['invoice:'+id]=new Date().toISOString();mark('invoice',id)}$('#modal').hidden=true;render();toast('Facture '+i.numero+' supprimée')})},
   editService:function(id){serviceForm(id)},
   saveService:function(id){
     var nom=$('#svc-nom').value.trim(),raw=$('#svc-prix').value.trim(),prix=parseIntLoose(raw),e=$('#svc-err');
     if(!nom||raw===''||!/\d/.test(raw)){e.textContent=!nom?'Indiquez le nom de la prestation.':'Indiquez un prix en dinars.';e.hidden=false;return}
     var s=id?D().services.find(function(x){return x.id===id}):null;
     if(s){if(s.nom!==nom||s.prix!==prix)s.exemple=false;s.nom=nom;s.prix=prix;s.actif=$('#svc-actif').checked}
-    else D().services.push({id:uid(),nom:nom,prix:prix,actif:$('#svc-actif').checked,exemple:false});
-    save();$('#modal').hidden=true;render();toast('Prestation enregistrée : '+nom+' · '+fmt(prix));
+    else{s={id:uid(),nom:nom,prix:prix,actif:$('#svc-actif').checked,exemple:false};D().services.push(s)}
+    s.maj=new Date().toISOString();save();mark('service',s.id);$('#modal').hidden=true;render();toast('Prestation enregistrée : '+nom+' · '+fmt(prix));
   },
+  signIn:signIn, signOut:signOut, syncNow:function(){sy.err='';sync()},
   exportData:exportData,
   pickRestore:function(){$('#restore-file').click()},
   startDemo:startDemo,
@@ -595,7 +754,7 @@ document.addEventListener('change',function(e){
   else if(t.id==='f-month'&&/^\d{4}-\d\d$/.test(t.value)){ui.fMonth=t.value;render()}
   else if(t.id==='f-from'&&t.value){ui.fFrom=t.value;render()}
   else if(t.id==='f-to'&&t.value){ui.fTo=t.value;render()}
-  else if(t.dataset.cab){D().cabinet[t.dataset.cab]=t.value.trim();save();$('#cab-name').textContent=D().cabinet.nom;toast('Informations du cabinet enregistrées')}
+  else if(t.dataset.cab){D().cabinet[t.dataset.cab]=t.value.trim();D().cabinet.maj=new Date().toISOString();save();mark('meta','cabinet');$('#cab-name').textContent=D().cabinet.nom;toast('Informations du cabinet enregistrées')}
   else if(t.id==='restore-file'){if(t.files&&t.files[0])restoreFrom(t.files[0]);t.value=''}
   else if(t.dataset.f==='svc'&&draft){
     var l=draft.lignes[+t.dataset.i],s=D().services.find(function(x){return x.id===t.value});
@@ -613,6 +772,7 @@ document.addEventListener('input',function(e){
 });
 window.addEventListener('hashchange',function(){render();window.scrollTo(0,0)});
 render();
+sync();window.addEventListener('online',function(){sync()});document.addEventListener('visibilitychange',function(){if(!document.hidden)sync()});
 if(!EMBED&&'serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(function(){});
 })();
 </script>
