@@ -90,13 +90,7 @@ const shots = process.argv[2];
   // 5. Persistance après rechargement, démonstration hors totaux
   await p.reload();
   k = await T('.kpis'); assert(/8 500 DA 1 facture/.test(k)); log('données conservées après rechargement');
-  await nav('prestations'); await p.click('[data-act=startDemo]');
-  assert(!/^.*8 500 DA 1 facture.*8 500 DA 1 facture/.test(await T('.kpis')) || true);
-  if (shots) await p.screenshot({ path: shots + '/demo.png', fullPage: true });
-  await p.click('[data-act=quitDemo]');
-  k = await T('.kpis'); assert(/8 500 DA 1 facture.*8 500 DA 1 facture/.test(k), k);
-  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('carnet-dentaire-v1')).invoices.length), 1); log('démonstration : vrais totaux intacts');
-  assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  assert.equal(await p.locator('[data-act=startDemo]').count(), 0);
 
   // Sauvegarde / restauration
   await nav('prestations');

@@ -397,7 +397,6 @@ function render(){
   }
   $('#cab-name').textContent=D().cabinet.nom||'';
   var b='';
-  if(demo)b+='<div class="banner"><span>Démonstration : données fictives, rien n’est enregistré et vos vrais totaux ne sont pas touchés.</span><button class="btn" data-act="quitDemo">Quitter la démonstration</button></div>';
   if(!storageOK)b+='<div class="banner"><span>Le stockage de ce navigateur est indisponible (navigation privée ?). Vos saisies ne seront pas conservées.</span></div>';
   var seen={},dups={};D().invoices.forEach(function(i){var k=i.numero.trim().toLowerCase();if(seen[k])dups[i.numero]=1;seen[k]=1});
   if(Object.keys(dups).length)b+='<div class="banner"><span>Numéro en double (factures créées sur deux appareils sans connexion) : '+esc(Object.keys(dups).join(', '))+'. Ouvrez l’une des deux et changez son numéro.</span></div>';
@@ -428,7 +427,7 @@ function viewDash(){
   if(du.length)h+='<section class="panel" id="dus"><div class="head"><h2>Restes à payer</h2><span class="num" style="color:var(--warn)">'+fmt(du.reduce(function(t,i){return t+resteDe(i)},0))+'</span></div><div class="list">'+du.slice(0,6).map(function(i){return '<div class="item"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">'+(recuDe(i)?'Reçu '+fmt(recuDe(i))+' sur '+fmt(invTotal(i)):'Impayée')+'</span></div><span class="num amt">'+fmt(resteDe(i))+'</span><button class="btn" data-act="openInvoice" data-id="'+i.id+'">Ouvrir</button></div>'}).join('')+'</div>'+(du.length>6?'<p class="small muted" style="margin:0">et '+pl(du.length-6,'autre facture')+' : voir le registre.</p>':'')+'</section>';
   h+='<section class="panel"><div class="head"><h2>Dernières factures</h2><a class="small" href="#factures" style="color:var(--accent);font-weight:600">Tout le registre</a></div>';
   if(last.length)h+='<div class="list">'+last.map(function(i){return '<div class="item"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+'</span><span class="s">'+esc(lignesTxt(i))+etatPill(i)+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span><button class="btn" data-act="openInvoice" data-id="'+i.id+'">Ouvrir</button></div>'}).join('')+'</div>';
-  else h+='<div class="empty">Aucune facture enregistrée. Vos totaux démarrent à zéro.'+(demo?'':'<br><button class="btn ghost" data-act="startDemo">Voir une démonstration</button>')+'</div>';
+  else h+='<div class="empty">Aucune facture enregistrée. Vos totaux démarrent à zéro.</div>';
   h+='</section></div></div>';
   $('#view').innerHTML=h;
 }
@@ -498,8 +497,7 @@ function viewPrestations(){
     '<label>Mentions (NIF, NIS, n° d’ordre…)<textarea id="cab-mentions" data-cab="mentions">'+esc(c.mentions)+'</textarea></label></section>';
   h+='<section class="panel"><h2>Données et sauvegarde</h2><p style="margin:0">Vos factures et tarifs sont enregistrés <strong>dans ce navigateur, sur cet appareil uniquement</strong>. '+(sess?'Une copie est aussi synchronisée avec votre compte Supabase.':'Rien n’est envoyé sur Internet.')+' Effacer les données du site ou changer de téléphone les fait disparaître : exportez une sauvegarde régulièrement.</p>'+
     '<p class="small muted" style="margin:0">'+pl(real.invoices.length,'facture')+' enregistrée'+(real.invoices.length>1?'s':'')+' · Dernière sauvegarde : '+(real.derniereSauvegarde?dfr(real.derniereSauvegarde.slice(0,10)):'jamais')+'</p>'+
-    '<div class="row"><button class="btn primary grow" data-act="exportData"'+(EMBED?' disabled':'')+'>Exporter une sauvegarde</button><button class="btn grow" data-act="pickRestore">Restaurer une sauvegarde</button></div>'+
-    (demo?'':'<button class="btn ghost" data-act="startDemo">Voir une démonstration (données fictives)</button>')+'</section>';
+    '<div class="row"><button class="btn primary grow" data-act="exportData"'+(EMBED?' disabled':'')+'>Exporter une sauvegarde</button><button class="btn grow" data-act="pickRestore">Restaurer une sauvegarde</button></div></section>';
   h+=syncPanel();
   $('#view').innerHTML=h;
 }
@@ -648,23 +646,6 @@ function restoreFrom(file){
       real=d;save();if(sess){Object.keys(keep).concat(Object.keys(syn.tombs)).forEach(function(k){syn.dirty[k]=1});mark('meta','cabinet')}render();toast('Sauvegarde restaurée : '+pl(d.invoices.length,'facture'))});
   };
   r.readAsText(file);
-}
-
-/* ---------- Démonstration (jamais enregistrée) ---------- */
-function startDemo(){
-  var d=fresh(),seed=7,t=today(),m=t.slice(0,7),last=+t.slice(8),n=0;
-  function rnd(){seed=(seed*1103515245+12345)%2147483648;return seed/2147483648}
-  d.cabinet.nom='Cabinet de démonstration';
-  for(var day=1;day<=last;day++){
-    var dow=toDate(m+'-'+pad(day)).getDay(); if(dow===5)continue;
-    var k=Math.floor(rnd()*4)+(day===last?1:0);
-    for(var j=0;j<k;j++){
-      var lines=[],c=1+Math.floor(rnd()*2);
-      for(var q=0;q<c;q++){var s=d.services[Math.floor(rnd()*d.services.length)];if(lines.some(function(l){return l.serviceId===s.id}))continue;lines.push({serviceId:s.id,libelle:s.nom,qte:rnd()<.2?2:1,prix:s.prix})}
-      n++;d.invoices.push({id:'demo'+n,numero:'DEMO-'+String(n).padStart(3,'0'),date:m+'-'+pad(day),patient:'',lignes:lines,creeLe:m+'-'+pad(day)+'T'+pad(9+j)+':00:00'});
-    }
-  }
-  demo=d; ui.day=t; location.hash='#tableau'; render(); window.scrollTo(0,0);
 }
 
 /* ---------- Synchronisation entre appareils (Supabase) ---------- */
@@ -935,8 +916,6 @@ var ACT={
   markPaid:function(id){var i=D().invoices.find(function(x){return x.id===id});if(!i)return;i.recu=null;i.maj=i.modifieLe=new Date().toISOString();save();mark('invoice',id);$('#modal').hidden=true;render();toast('Facture '+i.numero+' marquée payée')}, syncNow:function(){sy.err='';sync()},
   exportData:exportData,
   pickRestore:function(){$('#restore-file').click()},
-  startDemo:startDemo,
-  quitDemo:function(){demo=null;render();toast('Démonstration fermée. Retour à vos données.')},
   confirmNo:function(){$('#confirm').hidden=true;confirmCb=null},
   confirmYes:function(){$('#confirm').hidden=true;var cb=confirmCb;confirmCb=null;if(cb)cb()}
 };
