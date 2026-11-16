@@ -128,6 +128,10 @@ button.item{width:100%;background:none;border:0;border-top:1px solid var(--line)
 .dialog{background:var(--surface);border-radius:16px;padding:20px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:16px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:80;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:600;max-width:calc(100% - 32px);text-align:center}
 
+#gate{z-index:65;background:var(--bg)!important;align-items:center;justify-content:center;overflow-y:auto;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.gate-in{width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px}
+.gate-in .btn.big{width:100%}
+
 /* Document imprimable (toujours noir sur blanc) */
 #apercu{z-index:60}
 #apercu .sheet-body{padding:12px}
@@ -206,6 +210,17 @@ button.item{width:100%;background:none;border:0;border-top:1px solid var(--line)
   <div class="sheet-head"><button class="btn ghost" data-act="closeApercu">Fermer</button><h2 id="ap-title">Aperçu</h2><button class="btn primary" id="ap-print" data-act="printNow">Imprimer</button></div>
   <div class="sheet-body"><p class="small muted noprint" id="ap-note" style="margin:0;text-align:center"></p><div id="paper"></div></div>
 </div>
+
+<div class="sheet" id="gate" hidden><form class="gate-in" id="gate-form" novalidate>
+  <div class="brand" style="font-size:28px">Carnet dentaire</div>
+  <p id="gate-msg" class="muted" style="margin:0"></p>
+  <label>E-mail<input id="sy-email" type="email" autocapitalize="off" autocomplete="username"></label>
+  <label>Mot de passe<input id="sy-pass" type="password" autocomplete="current-password"></label>
+  <div class="err" id="sy-err" hidden></div>
+  <button class="btn primary big" type="submit" id="gate-btn">Se connecter</button>
+  <button class="btn danger" type="button" id="gate-wipe" data-act="wipeDevice" hidden>Effacer les données de cet appareil</button>
+  <p class="small muted" style="margin:0">Après la première connexion, l’application s’ouvre aussi sans réseau sur cet appareil.</p>
+</form></div>
 
 <div class="scrim" id="confirm" hidden><div class="dialog" role="alertdialog" aria-modal="true"><div id="confirm-msg"></div><div class="row end"><button class="btn" data-act="confirmNo">Annuler</button><button class="btn primary" id="confirm-ok" data-act="confirmYes">Confirmer</button></div></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -311,6 +326,15 @@ function render(){
   var v=(location.hash||'').slice(1);
   ui.view=['tableau','factures','prestations'].indexOf(v)>=0?v:'tableau';
   document.querySelectorAll('.tabs a').forEach(function(a){if(a.dataset.tab===ui.view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  var gated=!EMBED&&(!sess||sy.login);
+  $('#gate').hidden=!gated;
+  if(gated){
+    $('#view').innerHTML='';$('#banners').innerHTML='';$('#cab-name').textContent='';updSyncUI();
+    ['#editor','#modal','#apercu'].forEach(function(x){$(x).hidden=true});
+    $('#gate-msg').textContent=sy.login?'Votre session a expiré. Reconnectez-vous ; rien n’est perdu sur cet appareil.':'Connectez-vous pour ouvrir votre carnet. Vos factures sont les mêmes sur tous vos appareils.';
+    if(sess&&sess.email&&!$('#sy-email').value)$('#sy-email').value=sess.email;
+    return;
+  }
   $('#cab-name').textContent=D().cabinet.nom||'';
   var b='';
   if(demo)b+='<div class="banner"><span>Démonstration : données fictives, rien n’est enregistré et vos vrais totaux ne sont pas touchés.</span><button class="btn" data-act="quitDemo">Quitter la démonstration</button></div>';
@@ -536,7 +560,7 @@ function restoreFrom(file){
     var d=null;try{var o=JSON.parse(r.result);d=normalize(o&&o.data?o.data:o)}catch(e){}
     if(!d){toast('Ce fichier n’est pas une sauvegarde Carnet dentaire valide.');return}
     ask('<strong>Restaurer cette sauvegarde ?</strong><p style="margin:8px 0 0">Elle contient '+pl(d.invoices.length,'facture')+' et '+pl(d.services.length,'prestation')+'. Elle <strong>remplacera</strong> les '+pl(real.invoices.length,'facture')+' actuellement sur cet appareil.</p>','Remplacer',function(){demo=null;var old=real,now=new Date().toISOString(),keep={};
-      d.invoices.forEach(function(i){i.maj=now;keep['invoice:'+i.id]=1});d.services.forEach(function(x){x.maj=now;keep['service:'+x.id]=1});d.cabinet.maj=now;
+      d.invoices.forEach(function(i){i.maj=now;keep['invoice:'+i.id]=1});d.services.forEach(function(x){x.maj=now;keep['service:'+x.id]=1});d.cabinet.maj=now;d.owner=sess?sess.user_id:undefined;
       old.invoices.forEach(function(i){if(!keep['invoice:'+i.id])syn.tombs['invoice:'+i.id]=now});old.services.forEach(function(x){if(!keep['service:'+x.id])syn.tombs['service:'+x.id]=now});
       real=d;save();if(sess){Object.keys(keep).concat(Object.keys(syn.tombs)).forEach(function(k){syn.dirty[k]=1});mark('meta','cabinet')}render();toast('Sauvegarde restaurée : '+pl(d.invoices.length,'facture'))});
   };
@@ -669,7 +693,7 @@ function sync(){
     sy.err='';sy.last=new Date();
     var a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&$('#view').contains(a);
     if(changed&&!demo&&!typing)render();
-  },function(e){sy.err=sy.login?'':(navigator.onLine===false?'hors connexion':(e&&e.message)||'erreur réseau');if(sy.login&&ui.view==='prestations')render()})
+  },function(e){sy.err=sy.login?'':(navigator.onLine===false?'hors connexion':(e&&e.message)||'erreur réseau');if(sy.login)render()})
   .then(function(){sy.busy=false;updSyncUI();if(sy.again){sy.again=false;queueSync()}});
 }
 function syncPanel(){
@@ -681,31 +705,34 @@ function syncPanel(){
       '<p class="small muted" id="sync-status" style="margin:0">'+esc(syncDetail())+'</p>'+
       '<div class="row"><button class="btn primary grow" data-act="syncNow">Synchroniser maintenant</button><button class="btn grow" data-act="signOut">Se déconnecter</button></div></section>';
   }
-  h+='<p style="margin:0">'+(sy.login?'Votre session a expiré. Reconnectez-vous pour reprendre la synchronisation ; rien n’est perdu sur cet appareil.':'Connectez le même compte sur votre iPhone et votre ordinateur pour y retrouver les mêmes factures. Sans connexion, la saisie continue et l’envoi se fait au retour du réseau.')+'</p>';
-  if(!SUPA_URL)h+='<label>Adresse du projet Supabase<input id="sy-url" type="url" inputmode="url" autocapitalize="off" autocomplete="off" placeholder="https://xxxx.supabase.co" value="'+esc(sess&&sess.url||'')+'"></label>';
-  if(!SUPA_KEY)h+='<label>Clé publique (publishable ou anon)<input id="sy-key" autocapitalize="off" autocomplete="off" value="'+esc(sess&&sess.key||'')+'"></label>';
-  h+='<label>E-mail<input id="sy-email" type="email" autocapitalize="off" autocomplete="username" value="'+esc(sess&&sess.email||'')+'"></label>'+
-    '<label>Mot de passe<input id="sy-pass" type="password" autocomplete="current-password"></label>'+
-    '<div class="err" id="sy-err"'+(sy.formErr?'':' hidden')+'>'+esc(sy.formErr)+'</div>'+
-    '<button class="btn primary" data-act="signIn">Se connecter</button></section>';
-  return h;
+  return '';
 }
 function signIn(){
-  var base={url:(SUPA_URL||($('#sy-url')||{}).value||'').trim().replace(/\/+$/,''),key:(SUPA_KEY||($('#sy-key')||{}).value||'').trim()};
-  var email=$('#sy-email').value.trim(),pass=$('#sy-pass').value;
-  function fail(m){sy.formErr=m;var e=$('#sy-err');e.textContent=m;e.hidden=false}
-  if(!/^https:\/\/|^http:\/\/localhost/.test(base.url)||!base.key)return fail('Indiquez l’adresse du projet (https://…) et la clé publique.');
+  var email=$('#sy-email').value.trim(),pass=$('#sy-pass').value,btn=$('#gate-btn'),base={url:SUPA_URL,key:SUPA_KEY};
+  function fail(m,wipe){var e=$('#sy-err');e.textContent=m;e.hidden=false;$('#gate-wipe').hidden=!wipe;btn.disabled=false;btn.textContent='Se connecter'}
   if(!email||!pass)return fail('Indiquez l’e-mail et le mot de passe.');
+  btn.disabled=true;btn.textContent='Connexion…';
   api('/auth/v1/token?grant_type=password',{method:'POST',auth:false,cfg:base,body:{email:email,password:pass}}).then(function(j){
-    sy.formErr='';sy.login=false;sy.err='';setSession(j,base);
+    var who=j.user&&j.user.id;
+    if(!j.access_token||!who)return fail('Réponse inattendue du serveur.');
+    if(real.owner&&real.owner!==who)return fail('Cet appareil contient les données d’un autre compte. Connectez-vous avec ce compte, ou effacez les données de cet appareil.',true);
+    real.owner=who;save();
+    sy.login=false;sy.err='';setSession(j,base);
     syn.cursor=null;syn.dirty={};markAll();writeJ(YKEY,syn);
-    render();toast('Connecté. Synchronisation en cours…');sync();
-  },function(e){fail(e.status===400?'E-mail ou mot de passe incorrect.':'Connexion impossible : '+e.message)});
+    $('#sy-pass').value='';$('#sy-err').hidden=true;$('#gate-wipe').hidden=true;btn.disabled=false;btn.textContent='Se connecter';
+    render();sync();
+  },function(e){fail(e.status===400?'E-mail ou mot de passe incorrect.':(e.status?'Connexion impossible : '+e.message:'Pas de réponse du serveur. Vérifiez la connexion Internet : la première connexion nécessite le réseau.'))});
+}
+function wipeLocal(){
+  demo=null;real=fresh();sess=null;syn={cursor:null,dirty:{},tombs:{}};
+  writeJ(SKEY,null);writeJ(YKEY,null);save();sy.login=false;sy.err='';sy.last=null;
 }
 function signOut(){
   var n=pending();
-  ask('<strong>Se déconnecter ?</strong><p style="margin:8px 0 0">Les données restent sur cet appareil mais ne seront plus synchronisées.'+(n?' <strong>'+pl(n,'modification')+' pas encore envoyée'+(n>1?'s':'')+'.</strong>':'')+'</p>','Se déconnecter',function(){
-    sess=null;writeJ(SKEY,null);syn.cursor=null;syn.dirty={};writeJ(YKEY,syn);sy.login=false;sy.err='';render()});
+  ask('<strong>Se déconnecter ?</strong><p style="margin:8px 0 0">Les factures seront retirées de cet appareil ; elles restent sur votre compte et reviendront à la prochaine connexion.'+(n?' <strong>Attention : '+pl(n,'modification')+' pas encore envoyée'+(n>1?'s':'')+' sera perdue. Synchronisez d’abord.</strong>':'')+'</p>','Se déconnecter',function(){wipeLocal();location.hash='#tableau';render()});
+}
+function wipeDevice(){
+  ask('<strong>Effacer les données de cet appareil ?</strong><p style="margin:8px 0 0">Les factures présentes sur cet appareil et non synchronisées seront définitivement perdues.</p>','Effacer',function(){wipeLocal();$('#sy-err').hidden=true;$('#gate-wipe').hidden=true;render()});
 }
 
 /* ---------- Actions ---------- */
@@ -737,7 +764,7 @@ var ACT={
     else{s={id:uid(),nom:nom,prix:prix,actif:$('#svc-actif').checked,exemple:false};D().services.push(s)}
     s.maj=new Date().toISOString();save();mark('service',s.id);$('#modal').hidden=true;render();toast('Prestation enregistrée : '+nom+' · '+fmt(prix));
   },
-  signIn:signIn, signOut:signOut, syncNow:function(){sy.err='';sync()},
+  signOut:signOut, wipeDevice:wipeDevice, syncNow:function(){sy.err='';sync()},
   exportData:exportData,
   pickRestore:function(){$('#restore-file').click()},
   startDemo:startDemo,
@@ -769,6 +796,8 @@ document.addEventListener('input',function(e){
   else if(t.dataset.f==='prix'){draft.lignes[+t.dataset.i].prix=parseIntLoose(t.value);updTotals()}
   else if(t.dataset.f==='qte'){draft.lignes[+t.dataset.i].qte=Math.max(1,parseIntLoose(t.value));updTotals()}
 });
+document.addEventListener('submit',function(e){if(e.target.id==='gate-form'){e.preventDefault();signIn()}});
+setInterval(function(){if(!document.hidden)sync()},120000);
 window.addEventListener('hashchange',function(){render();window.scrollTo(0,0)});
 render();
 sync();window.addEventListener('online',function(){sync()});document.addEventListener('visibilitychange',function(){if(!document.hidden)sync()});

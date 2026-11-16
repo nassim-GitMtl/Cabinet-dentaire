@@ -6,7 +6,7 @@ http.createServer((req, res) => {
   if (req.method === 'OPTIONS') return send(res, 204);
   let b = ''; req.on('data', c => b += c); req.on('end', () => {
     const u = new URL(req.url, 'http://x'), body = b ? JSON.parse(b) : null;
-    if (req.headers.apikey !== 'cle-test') return send(res, 401, { message: 'Invalid API key' });
+    if (req.headers.apikey !== 'sb_publishable_KtecPpudCqwzvDItFGc58g_ITkQdoQ_') return send(res, 401, { message: 'Invalid API key' });
     if (u.pathname === '/auth/v1/token') {
       const ok = u.searchParams.get('grant_type') === 'password' ? (body.email === 'doc@test.dz' && body.password === 'secret') : body.refresh_token === 'r1';
       return ok ? send(res, 200, { access_token: 'jwt1', refresh_token: 'r1', expires_in: 3600, user: { id: 'u1', email: 'doc@test.dz' } }) : send(res, 400, { error_description: 'Invalid login credentials' });

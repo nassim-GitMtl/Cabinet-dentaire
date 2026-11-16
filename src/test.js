@@ -8,7 +8,10 @@ const shots = process.argv[2];
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(String(e))); p.on('console', m => m.type() === 'error' && errs.push(m.text()));
   await p.addInitScript(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
+  await ctx.route('https://olnqyuzogijgykztopgs.supabase.co/**', async r => { const q = r.request(); const u = q.url().replace('https://olnqyuzogijgykztopgs.supabase.co', 'http://localhost:8766'); if (q.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' } }); const h = q.headers(); const x = await fetch(u, { method: q.method(), headers: { apikey: h.apikey, authorization: h.authorization || '', 'content-type': 'application/json' }, body: q.postData() || undefined }); r.fulfill({ status: x.status, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: await x.text() }); });
   await p.goto('http://localhost:8765/index.html');
+  assert.equal(await p.locator('#gate').isVisible(), true); assert.equal((await p.locator('#view').innerText()).trim(), ''); console.log('OK écran de connexion affiché en premier, aucune donnée derrière');
+  await p.fill('#sy-email', 'doc@test.dz'); await p.fill('#sy-pass', 'secret'); await p.click('#gate-btn'); await p.waitForSelector('#gate', { state: 'hidden' });
   const T = s => p.locator(s).innerText().then(t => t.replace(/ /g, ' ').replace(/\s+/g, ' '));
   const nav = async t => { await p.click('[data-tab=' + t + ']'); await p.waitForSelector('.tabs a[data-tab=' + t + '][aria-current]'); await p.waitForFunction(t => document.querySelector('#view h1').textContent.toLowerCase().startsWith(t.slice(0, 6)), t); };
   const log = (...a) => console.log('OK', ...a);
@@ -90,17 +93,19 @@ const shots = process.argv[2];
   await nav('prestations');
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-act=exportData]')]);
   const f = await dl.path(); log('export :', dl.suggestedFilename());
-  await p.evaluate(() => localStorage.clear()); await p.reload(); await nav('tableau');
-  assert(/0 DA 0 facture/.test(await T('.kpis')));
+  await nav('factures'); await p.click('button.item[data-act=openInvoice]'); await p.click('[data-act=deleteInvoice]'); await p.click('#confirm-ok');
+  await nav('tableau'); assert(/0 DA 0 facture/.test(await T('.kpis')));
   await nav('prestations');
   await p.setInputFiles('#restore-file', { name: 'sauvegarde.json', mimeType: 'application/json', buffer: require('fs').readFileSync(f) });
   await p.click('#confirm-ok'); await nav('tableau');
   k = await T('.kpis'); assert(/8 500 DA 1 facture/.test(k)); log('restauration :', k);
 
-  // Ordinateur
-  const d = await b.newPage({ viewport: { width: 1280, height: 800 }, locale: 'fr-FR' });
-  await d.goto('http://localhost:8765/index.html'); await d.evaluate(() => 0);
-  await d.click('[data-act=startDemo]'); if (shots) await d.screenshot({ path: shots + '/bureau.png' });
+  // Déconnexion : données retirées de l'appareil, retrouvées à la reconnexion
+  await p.waitForFunction(() => document.querySelector('#sync-dot').textContent === 'Synchronisé');
+  await nav('prestations'); await p.click('[data-act=signOut]'); await p.click('#confirm-ok'); await p.waitForSelector('#gate');
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('carnet-dentaire-v1')).invoices.length), 0); log('déconnexion : appareil vidé');
+  await p.fill('#sy-email', 'doc@test.dz'); await p.fill('#sy-pass', 'secret'); await p.click('#gate-btn'); await p.waitForFunction(() => document.querySelector('#sync-dot').textContent === 'Synchronisé');
+  k = await T('.kpis'); assert(/8 500 DA 1 facture/.test(k), k); log('reconnexion : données retrouvées', k);
   assert.deepEqual(errs, []); log('aucune erreur console');
   await b.close();
 })().catch(e => { console.error('ÉCHEC', e); process.exit(1); });
