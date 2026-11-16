@@ -338,6 +338,8 @@ function mlong(m){var s=toDate(m+'-01').toLocaleDateString('fr-FR',{month:'long'
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function invTotal(i){return i.lignes.reduce(function(a,l){return a+l.qte*l.prix},0)}
 function sumInv(a){return a.reduce(function(t,i){return t+invTotal(i)},0)}
+function live(){return D().invoices.filter(function(i){return !i.archive})}
+function archived(){return D().invoices.filter(function(i){return i.archive}).sort(function(a,b){return String(b.archive.le).localeCompare(String(a.archive.le))})}
 function recuDe(i){var t=invTotal(i);return i.recu==null?t:Math.min(i.recu,t)}
 function resteDe(i){return invTotal(i)-recuDe(i)}
 function sumRecu(a){return a.reduce(function(t,i){return t+recuDe(i)},0)}
@@ -398,7 +400,7 @@ function render(){
   $('#cab-name').textContent=D().cabinet.nom||'';
   var b='';
   if(!storageOK)b+='<div class="banner"><span>Le stockage de ce navigateur est indisponible (navigation privée ?). Vos saisies ne seront pas conservées.</span></div>';
-  var seen={},dups={};D().invoices.forEach(function(i){var k=i.numero.trim().toLowerCase();if(seen[k])dups[i.numero]=1;seen[k]=1});
+  var seen={},dups={};live().forEach(function(i){var k=i.numero.trim().toLowerCase();if(seen[k])dups[i.numero]=1;seen[k]=1});
   if(Object.keys(dups).length)b+='<div class="banner"><span>Numéro en double (factures créées sur deux appareils sans connexion) : '+esc(Object.keys(dups).join(', '))+'. Ouvrez l’une des deux et changez son numéro.</span></div>';
   updSyncUI();
   if(EMBED)b+='<div class="banner"><span>Aperçu : l’impression et le fichier de sauvegarde ne fonctionnent que dans la version installée (fichier livré).</span></div>';
@@ -409,7 +411,7 @@ function render(){
 
 /* ---------- Tableau de bord ---------- */
 function viewDash(){
-  var d=ui.day,m=d.slice(0,7),all=D().invoices;
+  var d=ui.day,m=d.slice(0,7),all=live();
   var jour=all.filter(function(i){return i.date===d}),mois=all.filter(function(i){return i.date.slice(0,7)===m});
   var isToday=d===today();
   var h='<div class="head"><h1>Tableau de bord</h1></div>';
@@ -461,7 +463,7 @@ function ranking(mois){
 
 /* ---------- Registre ---------- */
 function filtered(){
-  var list,label,all=D().invoices;
+  var list,label,all=live();
   if(ui.fMode==='jour'){list=all.filter(function(i){return i.date===ui.fDay});label='Journée du '+dfr(ui.fDay)}
   else if(ui.fMode==='mois'){list=all.filter(function(i){return i.date.slice(0,7)===ui.fMonth});label=cap(mlong(ui.fMonth))}
   else{var a=ui.fFrom,b=ui.fTo;if(a>b){var t=a;a=b;b=t}list=all.filter(function(i){return i.date>=a&&i.date<=b});label='Du '+dfr(a)+' au '+dfr(b)}
@@ -480,6 +482,7 @@ function viewFactures(){
   if(f.list.length)h+='<div class="list">'+f.list.map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">'+esc(lignesTxt(i))+etatPill(i)+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div>';
   else h+='<div class="empty">Aucune facture sur cette période.</div>';
   h+='</section>';
+  var na=archived().length;if(na)h+='<button class="btn ghost" data-act="showArchives">Archives : '+pl(na,'facture supprimée')+'</button>';
   $('#view').innerHTML=h;
 }
 
@@ -496,7 +499,7 @@ function viewPrestations(){
     '<label>Téléphone<input id="cab-tel" data-cab="tel" type="tel" value="'+esc(c.tel)+'"></label>'+
     '<label>Mentions (NIF, NIS, n° d’ordre…)<textarea id="cab-mentions" data-cab="mentions">'+esc(c.mentions)+'</textarea></label></section>';
   h+='<section class="panel"><h2>Données et sauvegarde</h2><p style="margin:0">Vos factures et tarifs sont enregistrés <strong>dans ce navigateur, sur cet appareil uniquement</strong>. '+(sess?'Une copie est aussi synchronisée avec votre compte Supabase.':'Rien n’est envoyé sur Internet.')+' Effacer les données du site ou changer de téléphone les fait disparaître : exportez une sauvegarde régulièrement.</p>'+
-    '<p class="small muted" style="margin:0">'+pl(real.invoices.length,'facture')+' enregistrée'+(real.invoices.length>1?'s':'')+' · Dernière sauvegarde : '+(real.derniereSauvegarde?dfr(real.derniereSauvegarde.slice(0,10)):'jamais')+'</p>'+
+    '<p class="small muted" style="margin:0">'+pl(live().length,'facture')+' enregistrée'+(live().length>1?'s':'')+(archived().length?' · '+pl(archived().length,'archivée'):'')+' · Dernière sauvegarde : '+(real.derniereSauvegarde?dfr(real.derniereSauvegarde.slice(0,10)):'jamais')+'</p>'+
     '<div class="row"><button class="btn primary grow" data-act="exportData"'+(EMBED?' disabled':'')+'>Exporter une sauvegarde</button><button class="btn grow" data-act="pickRestore">Restaurer une sauvegarde</button></div></section>';
   h+=syncPanel();
   $('#view').innerHTML=h;
@@ -516,13 +519,15 @@ function invoiceDetail(id){
   var i=D().invoices.find(function(x){return x.id===id}); if(!i)return;
   $('#modal-title').textContent='Facture '+i.numero;
   $('#modal-body').innerHTML='<section class="panel"><div class="sum"><div><div style="font-weight:600">'+cap(dlong(i.date))+'</div>'+(i.patient?'<div class="small muted">Patient : '+esc(i.patient)+'</div>':'')+'</div></div>'+
+    (i.archive?'<div class="banner"><span>Facture supprimée le '+dfr(String(i.archive.le).slice(0,10))+(i.archive.motif?' · Motif : '+esc(i.archive.motif):'')+'. Elle ne compte plus dans les totaux.</span></div>':'')+
     '<div class="list">'+i.lignes.map(function(l){return '<div class="item"><div class="main"><span class="t">'+esc(l.libelle)+'</span><span class="s">'+l.qte+' × '+fmt(l.prix)+'</span></div><span class="num amt">'+fmt(l.qte*l.prix)+'</span></div>'}).join('')+'</div>'+
     '<div class="sum" style="border-top:2px solid var(--ink);padding-top:10px"><span style="font-weight:600">Total général</span><span class="num">'+fmt(invTotal(i))+'</span></div>'+
     '<div class="sum"><span class="small muted">'+(resteDe(i)<=0?'Payée':recuDe(i)?'Reçu '+fmt(recuDe(i)):'Impayée')+(recuDe(i)?' · '+MODES[i.mode||'especes']:'')+'</span>'+(resteDe(i)>0?'<span class="num" style="font-size:16px;color:var(--warn)">Reste '+fmt(resteDe(i))+'</span>':'')+'</div></section>'+
-    (resteDe(i)>0?'<button class="btn primary" data-act="markPaid" data-id="'+i.id+'">Marquer comme payée</button>':'')+
-    '<button class="btn" data-act="editInvoice" data-id="'+i.id+'">Corriger la facture</button>'+
+    (i.archive?'<button class="btn primary" data-act="restoreInvoice" data-id="'+i.id+'">Restaurer la facture</button>':'')+
+    (!i.archive&&resteDe(i)>0?'<button class="btn primary" data-act="markPaid" data-id="'+i.id+'">Marquer comme payée</button>':'')+
+    (i.archive?'':'<button class="btn" data-act="editInvoice" data-id="'+i.id+'">Corriger la facture</button>')+
     '<button class="btn" data-act="printInvoice" data-id="'+i.id+'">'+(EMBED?'Aperçu de la facture imprimée':'Imprimer la facture')+'</button>'+
-    '<button class="btn danger" data-act="deleteInvoice" data-id="'+i.id+'">Supprimer</button>';
+    (i.archive?'':'<button class="btn danger" data-act="deleteInvoice" data-id="'+i.id+'">Supprimer</button>');
   $('#modal').hidden=false;
 }
 
@@ -900,7 +905,13 @@ var ACT={
   printInvoice:function(id){var i=D().invoices.find(function(x){return x.id===id});if(i){$('#modal').hidden=true;showDoc('Facture '+i.numero,invoiceDoc(i))}},
   printList:function(){var f=filtered();if(f.list.length)showDoc('Registre',registerDoc(f))},
   deleteInvoice:function(id){var i=D().invoices.find(function(x){return x.id===id});if(!i)return;
-    ask('<strong>Supprimer la facture '+esc(i.numero)+' ?</strong><p style="margin:8px 0 0">'+fmt(invTotal(i))+' du '+dfr(i.date)+'. Cette action est définitive et son numéro ne sera pas réattribué.</p>','Supprimer',function(){D().invoices=D().invoices.filter(function(x){return x.id!==id});save();if(!demo){syn.tombs['invoice:'+id]=new Date().toISOString();mark('invoice',id)}$('#modal').hidden=true;render();toast('Facture '+i.numero+' supprimée')})},
+    ask('<strong>Supprimer la facture '+esc(i.numero)+' ?</strong><p style="margin:8px 0 12px">'+fmt(invTotal(i))+' du '+dfr(i.date)+'. Elle sortira des totaux et du registre, mais restera consultable dans les archives. Son numéro ne sera pas réattribué.</p><label>Motif (facultatif)<input id="del-motif" autocomplete="off" placeholder="Erreur de saisie, doublon…"></label>','Supprimer',function(){
+      var now=new Date().toISOString();i.archive={le:now,motif:($('#del-motif')||{}).value?$('#del-motif').value.trim():''};i.maj=now;save();mark('invoice',id);$('#modal').hidden=true;render();toast('Facture '+i.numero+' supprimée et archivée')})},
+  restoreInvoice:function(id){var i=D().invoices.find(function(x){return x.id===id});if(!i||!i.archive)return;delete i.archive;i.maj=new Date().toISOString();save();mark('invoice',id);$('#modal').hidden=true;render();toast('Facture '+i.numero+' restaurée')},
+  showArchives:function(){
+    $('#modal-title').textContent='Archives';
+    $('#modal-body').innerHTML='<p class="small muted" style="margin:0">Factures supprimées, de la plus récente à la plus ancienne. Elles ne comptent dans aucun total.</p><section class="panel"><div class="list">'+archived().map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">Supprimée le '+dfr(String(i.archive.le).slice(0,10))+(i.archive.motif?' · '+esc(i.archive.motif):'')+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div></section>';
+    $('#modal').hidden=false},
   editService:function(id){serviceForm(id)},
   saveService:function(id){
     var nom=$('#svc-nom').value.trim(),raw=$('#svc-prix').value.trim(),prix=parseIntLoose(raw),e=$('#svc-err');
