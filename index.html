@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Carnet dentaire</title>
+<title>Carnet de cabinet</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Carnet dentaire">
+<meta name="apple-mobile-web-app-title" content="Carnet">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#152226" media="(prefers-color-scheme: dark)">
@@ -197,7 +197,7 @@ button.item{width:100%;background:none;border:0;border-top:1px solid var(--line)
 @media (prefers-reduced-motion:no-preference){.btn,.seg button{transition:background-color .12s}}
 </style>
 
-<header class="top"><div class="top-in"><span class="brand">Carnet dentaire</span><span class="cab" id="cab-name"></span><span class="syncdot" id="sync-dot"></span></div></header>
+<header class="top"><div class="top-in"><span class="brand">Carnet de cabinet</span><span class="cab" id="cab-name"></span><span class="syncdot" id="sync-dot"></span></div></header>
 
 <main>
   <div id="banners"></div>
@@ -227,12 +227,15 @@ button.item{width:100%;background:none;border:0;border-top:1px solid var(--line)
 </div>
 
 <div class="sheet" id="gate" hidden><form class="gate-in" id="gate-form" novalidate>
-  <div class="brand" style="font-size:28px">Carnet dentaire</div>
+  <div class="brand" style="font-size:28px">Carnet de cabinet</div>
   <p id="gate-msg" class="muted" style="margin:0"></p>
-  <label>E-mail<input id="sy-email" type="email" autocapitalize="off" autocomplete="username"></label>
-  <label>Mot de passe<input id="sy-pass" type="password" autocomplete="current-password"></label>
+  <div class="banner" id="sy-info" hidden></div>
+  <label id="gate-l-email">E-mail<input id="sy-email" type="email" autocapitalize="off" autocomplete="username"></label>
+  <label id="gate-l-pass"><span id="gate-pass-lab">Mot de passe</span><input id="sy-pass" type="password" autocomplete="current-password"></label>
   <div class="err" id="sy-err" hidden></div>
   <button class="btn primary big" type="submit" id="gate-btn">Se connecter</button>
+  <button class="btn ghost" type="button" id="gate-alt" data-act="gateAlt">Créer un compte</button>
+  <button class="btn ghost" type="button" id="gate-forgot" data-act="gateForgot">Mot de passe oublié ?</button>
   <button class="btn danger" type="button" id="gate-wipe" data-act="wipeDevice" hidden>Effacer les données de cet appareil</button>
   <p class="small muted" style="margin:0">Après la première connexion, l’application s’ouvre aussi sans réseau sur cet appareil.</p>
 </form></div>
@@ -247,6 +250,7 @@ button.item{width:100%;background:none;border:0;border-top:1px solid var(--line)
 var KEY='carnet-dentaire-v1';
 var EMBED=false; try{EMBED=window.self!==window.top}catch(e){EMBED=true}
 var $=function(s){return document.querySelector(s)};
+var MODES={especes:'Espèces',carte:'Carte',cheque:'Chèque',virement:'Virement'};
 var storageOK=true, demo=null, real=load();
 function D(){return demo||real}
 
@@ -266,6 +270,7 @@ function normalize(d){
   d.services.forEach(function(s){s.prix=Math.max(0,Math.round(+s.prix||0));s.actif=s.actif!==false;s.nom=String(s.nom||'');if(!s.maj&&s.exemple===false)s.maj='2000-01-01T00:00:00.000Z'});
   d.invoices=d.invoices.filter(function(i){return i&&i.id&&/^\d{4}-\d\d-\d\d$/.test(i.date)&&Array.isArray(i.lignes)});
   d.invoices.forEach(function(i){i.numero=String(i.numero||'');i.patient=i.patient||'';
+    i.recu=i.recu==null?null:Math.max(0,Math.round(+i.recu||0));i.mode=MODES[i.mode]?i.mode:'especes';
     if(!i.maj)i.maj=i.modifieLe||i.creeLe||'2000-01-01T00:00:00.000Z';
     i.lignes.forEach(function(l){l.qte=Math.max(1,Math.round(+l.qte||1));l.prix=Math.max(0,Math.round(+l.prix||0));l.libelle=String(l.libelle||'')})});
   return d;
@@ -296,6 +301,10 @@ function mlong(m){var s=toDate(m+'-01').toLocaleDateString('fr-FR',{month:'long'
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function invTotal(i){return i.lignes.reduce(function(a,l){return a+l.qte*l.prix},0)}
 function sumInv(a){return a.reduce(function(t,i){return t+invTotal(i)},0)}
+function recuDe(i){var t=invTotal(i);return i.recu==null?t:Math.min(i.recu,t)}
+function resteDe(i){return invTotal(i)-recuDe(i)}
+function sumRecu(a){return a.reduce(function(t,i){return t+recuDe(i)},0)}
+function etatPill(i){var r=resteDe(i);return r<=0?'':' <span class="pill">'+(recuDe(i)===0?'Impayée':'Reste '+fmt(r))+'</span>'}
 function pl(n,w){return n+' '+w+(n>1?'s':'')}
 function lignesTxt(i){return i.lignes.map(function(l){return l.libelle+(l.qte>1?' ×'+l.qte:'')}).join(', ')}
 function parseIntLoose(v){return parseInt(String(v).replace(/[^\d]/g,''),10)||0}
@@ -341,13 +350,12 @@ function render(){
   var v=(location.hash||'').slice(1);
   ui.view=['tableau','factures','prestations'].indexOf(v)>=0?v:'tableau';
   document.querySelectorAll('.tabs a').forEach(function(a){if(a.dataset.tab===ui.view)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
-  var gated=!EMBED&&(!sess||sy.login);
+  var gated=!EMBED&&(!sess||sy.login||gateMode==='newpass');
   $('#gate').hidden=!gated;
   if(gated){
     $('#view').innerHTML='';$('#banners').innerHTML='';$('#cab-name').textContent='';updSyncUI();
     ['#editor','#modal','#apercu'].forEach(function(x){$(x).hidden=true});
-    $('#gate-msg').textContent=sy.login?'Votre session a expiré. Reconnectez-vous ; rien n’est perdu sur cet appareil.':'Connectez-vous pour ouvrir votre carnet. Vos factures sont les mêmes sur tous vos appareils.';
-    if(sess&&sess.email&&!$('#sy-email').value)$('#sy-email').value=sess.email;
+    renderGate();
     return;
   }
   $('#cab-name').textContent=D().cabinet.nom||'';
@@ -379,13 +387,15 @@ function viewDash(){
   h+='<section class="panel"><div class="head"><h2>Prestations du mois</h2><span class="small muted">classées par montant</span></div>'+ranking(mois)+'</section>';
   h+='</div><div>';
   var last=all.slice().sort(function(a,b){return b.date.localeCompare(a.date)||String(b.creeLe||'').localeCompare(String(a.creeLe||''))}).slice(0,5);
+  var du=all.filter(function(i){return resteDe(i)>0}).sort(byRegister);
+  if(du.length)h+='<section class="panel" id="dus"><div class="head"><h2>Restes à payer</h2><span class="num" style="color:var(--warn)">'+fmt(du.reduce(function(t,i){return t+resteDe(i)},0))+'</span></div><div class="list">'+du.slice(0,6).map(function(i){return '<div class="item"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">'+(recuDe(i)?'Reçu '+fmt(recuDe(i))+' sur '+fmt(invTotal(i)):'Impayée')+'</span></div><span class="num amt">'+fmt(resteDe(i))+'</span><button class="btn" data-act="openInvoice" data-id="'+i.id+'">Ouvrir</button></div>'}).join('')+'</div>'+(du.length>6?'<p class="small muted" style="margin:0">et '+pl(du.length-6,'autre facture')+' : voir le registre.</p>':'')+'</section>';
   h+='<section class="panel"><div class="head"><h2>Dernières factures</h2><a class="small" href="#factures" style="color:var(--accent);font-weight:600">Tout le registre</a></div>';
-  if(last.length)h+='<div class="list">'+last.map(function(i){return '<div class="item"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+'</span><span class="s">'+esc(lignesTxt(i))+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span><button class="btn" data-act="openInvoice" data-id="'+i.id+'">Ouvrir</button></div>'}).join('')+'</div>';
+  if(last.length)h+='<div class="list">'+last.map(function(i){return '<div class="item"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+'</span><span class="s">'+esc(lignesTxt(i))+etatPill(i)+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span><button class="btn" data-act="openInvoice" data-id="'+i.id+'">Ouvrir</button></div>'}).join('')+'</div>';
   else h+='<div class="empty">Aucune facture enregistrée. Vos totaux démarrent à zéro.'+(demo?'':'<br><button class="btn ghost" data-act="startDemo">Voir une démonstration</button>')+'</div>';
   h+='</section></div></div>';
   $('#view').innerHTML=h;
 }
-function kpi(cls,lab,list){return '<div class="kpi '+cls+'"><span class="lab">'+esc(lab)+'</span><span class="val">'+grp(sumInv(list))+' <small>DA</small></span><span class="small muted">'+pl(list.length,'facture')+'</span></div>'}
+function kpi(cls,lab,list){return '<div class="kpi '+cls+'"><span class="lab">'+esc(lab)+'</span><span class="val">'+grp(sumInv(list))+' <small>DA</small></span><span class="small muted">'+pl(list.length,'facture')+'</span><span class="small muted">Encaissé '+fmt(sumRecu(list))+(sumInv(list)-sumRecu(list)>0?' · <strong style="color:var(--warn)">reste '+fmt(sumInv(list)-sumRecu(list))+'</strong>':'')+'</span></div>'}
 function niceMax(v){if(v<=0)return 1000;var p=Math.pow(10,Math.floor(Math.log10(v))),f=v/p;return (f<=1?1:f<=2?2:f<=5?5:10)*p}
 function chart(m,mois,sel){
   var y=+m.slice(0,4),mo=+m.slice(5,7),n=new Date(y,mo,0).getDate(),tot=[];
@@ -420,7 +430,7 @@ function filtered(){
   else if(ui.fMode==='mois'){list=all.filter(function(i){return i.date.slice(0,7)===ui.fMonth});label=cap(mlong(ui.fMonth))}
   else{var a=ui.fFrom,b=ui.fTo;if(a>b){var t=a;a=b;b=t}list=all.filter(function(i){return i.date>=a&&i.date<=b});label='Du '+dfr(a)+' au '+dfr(b)}
   list=list.slice().sort(byRegister);
-  return {list:list,label:label,total:sumInv(list)};
+  return {list:list,label:label,total:sumInv(list),recu:sumRecu(list)};
 }
 function viewFactures(){
   var f=filtered(),h='<div class="head"><h1>Factures</h1></div>';
@@ -428,10 +438,10 @@ function viewFactures(){
   if(ui.fMode==='jour')h+='<label>Journée<input type="date" id="f-day" value="'+ui.fDay+'"></label>';
   else if(ui.fMode==='mois')h+='<label>Mois<input type="month" id="f-month" value="'+ui.fMonth+'" placeholder="AAAA-MM"></label>';
   else h+='<div class="two"><label>Du<input type="date" id="f-from" value="'+ui.fFrom+'"></label><label>Au<input type="date" id="f-to" value="'+ui.fTo+'"></label></div>';
-  h+='<section class="panel"><div class="sum"><div><div style="font-weight:600">'+esc(f.label)+'</div><div class="small muted">'+pl(f.list.length,'facture')+'</div></div><span class="num">'+fmt(f.total)+'</span></div>';
-  h+='<button class="btn" data-act="printList"'+(f.list.length?'':' disabled')+'>'+(EMBED?'Aperçu de la liste imprimée':'Imprimer la liste')+'</button></section>';
+  h+='<section class="panel"><div class="sum"><div><div style="font-weight:600">'+esc(f.label)+'</div><div class="small muted">'+pl(f.list.length,'facture')+' · encaissé '+fmt(f.recu)+(f.total-f.recu>0?' · reste '+fmt(f.total-f.recu):'')+'</div></div><span class="num">'+fmt(f.total)+'</span></div>';
+  h+='<button class="btn" data-act="printList"'+(f.list.length?'':' disabled')+'>'+(EMBED?'Aperçu de la liste imprimée':'Imprimer la liste')+'</button><button class="btn" data-act="exportCsv"'+(f.list.length&&!EMBED?'':' disabled')+'>Exporter pour Excel</button></section>';
   h+='<section class="panel">';
-  if(f.list.length)h+='<div class="list">'+f.list.map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">'+esc(lignesTxt(i))+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div>';
+  if(f.list.length)h+='<div class="list">'+f.list.map(function(i){return '<button class="item" data-act="openInvoice" data-id="'+i.id+'"><div class="main"><span class="t">'+esc(i.numero)+' · '+dfr(i.date)+(i.patient?' · '+esc(i.patient):'')+'</span><span class="s">'+esc(lignesTxt(i))+etatPill(i)+'</span></div><span class="num amt">'+fmt(invTotal(i))+'</span></button>'}).join('')+'</div>';
   else h+='<div class="empty">Aucune facture sur cette période.</div>';
   h+='</section>';
   $('#view').innerHTML=h;
@@ -444,7 +454,7 @@ function viewPrestations(){
   h+='<section class="panel"><div class="list">'+S.map(function(s){return '<button class="item" data-act="editService" data-id="'+s.id+'"><div class="main"><span class="t">'+esc(s.nom)+'</span><span class="s">'+(s.actif?'':'<span class="pill off">Désactivée</span> ')+(s.exemple?'<span class="pill">Prix exemple</span>':(s.actif?'Tarif par défaut':''))+'</span></div><span class="num amt">'+fmt(s.prix)+'</span></button>'}).join('')+'</div>';
   h+='<p class="small muted" style="margin:0">Un changement de tarif s’applique aux prochaines saisies. Les factures déjà enregistrées gardent leur libellé et leur prix.</p></section>';
   h+='<section class="panel"><h2>Cabinet (en-tête des impressions)</h2>'+
-    '<label>Nom du cabinet<input id="cab-nom" data-cab="nom" value="'+esc(c.nom)+'" placeholder="Cabinet dentaire…"></label>'+
+    '<label>Nom du cabinet<input id="cab-nom" data-cab="nom" value="'+esc(c.nom)+'" placeholder="Cabinet du Dr …"></label>'+
     '<label>Praticien<input id="cab-praticien" data-cab="praticien" value="'+esc(c.praticien)+'" placeholder="Dr …"></label>'+
     '<label>Adresse<input id="cab-adresse" data-cab="adresse" value="'+esc(c.adresse)+'"></label>'+
     '<label>Téléphone<input id="cab-tel" data-cab="tel" type="tel" value="'+esc(c.tel)+'"></label>'+
@@ -472,8 +482,10 @@ function invoiceDetail(id){
   $('#modal-title').textContent='Facture '+i.numero;
   $('#modal-body').innerHTML='<section class="panel"><div class="sum"><div><div style="font-weight:600">'+cap(dlong(i.date))+'</div>'+(i.patient?'<div class="small muted">Patient : '+esc(i.patient)+'</div>':'')+'</div></div>'+
     '<div class="list">'+i.lignes.map(function(l){return '<div class="item"><div class="main"><span class="t">'+esc(l.libelle)+'</span><span class="s">'+l.qte+' × '+fmt(l.prix)+'</span></div><span class="num amt">'+fmt(l.qte*l.prix)+'</span></div>'}).join('')+'</div>'+
-    '<div class="sum" style="border-top:2px solid var(--ink);padding-top:10px"><span style="font-weight:600">Total général</span><span class="num">'+fmt(invTotal(i))+'</span></div></section>'+
-    '<button class="btn primary" data-act="editInvoice" data-id="'+i.id+'">Corriger la facture</button>'+
+    '<div class="sum" style="border-top:2px solid var(--ink);padding-top:10px"><span style="font-weight:600">Total général</span><span class="num">'+fmt(invTotal(i))+'</span></div>'+
+    '<div class="sum"><span class="small muted">'+(resteDe(i)<=0?'Payée':recuDe(i)?'Reçu '+fmt(recuDe(i)):'Impayée')+(recuDe(i)?' · '+MODES[i.mode||'especes']:'')+'</span>'+(resteDe(i)>0?'<span class="num" style="font-size:16px;color:var(--warn)">Reste '+fmt(resteDe(i))+'</span>':'')+'</div></section>'+
+    (resteDe(i)>0?'<button class="btn primary" data-act="markPaid" data-id="'+i.id+'">Marquer comme payée</button>':'')+
+    '<button class="btn" data-act="editInvoice" data-id="'+i.id+'">Corriger la facture</button>'+
     '<button class="btn" data-act="printInvoice" data-id="'+i.id+'">'+(EMBED?'Aperçu de la facture imprimée':'Imprimer la facture')+'</button>'+
     '<button class="btn danger" data-act="deleteInvoice" data-id="'+i.id+'">Supprimer</button>';
   $('#modal').hidden=false;
@@ -483,7 +495,8 @@ function invoiceDetail(id){
 function blank(){return {serviceId:'',libelle:'',qte:1,prix:0}}
 function openEditor(id){
   var inv=id?D().invoices.find(function(x){return x.id===id}):null;
-  draft=inv?JSON.parse(JSON.stringify(inv)):{id:null,numero:nextNumero(+today().slice(0,4)),date:today(),patient:'',lignes:[blank()]};
+  draft=inv?JSON.parse(JSON.stringify(inv)):{id:null,numero:nextNumero(+today().slice(0,4)),date:today(),patient:'',lignes:[blank()],recu:null,mode:'especes'};
+  draft.statut=draft.recu==null?'total':draft.recu===0?'impaye':'partiel';draft.mode=draft.mode||'especes';
   edErr=''; $('#ed-title').textContent=inv?'Corriger la facture':'Nouvelle facture';
   $('#modal').hidden=true; renderEditor(); $('#editor').hidden=false;
 }
@@ -502,7 +515,11 @@ function renderEditor(){
     '<div class="ctl"><label>Quantité<span class="step"><button type="button" data-act="qty" data-id="'+i+'" data-d="-1" aria-label="Diminuer">−</button><input id="ln-qte-'+i+'" data-i="'+i+'" data-f="qte" inputmode="numeric" value="'+l.qte+'"><button type="button" data-act="qty" data-id="'+i+'" data-d="1" aria-label="Augmenter">+</button></span></label>'+
     '<label>Prix unitaire (DA)<input id="ln-prix-'+i+'" data-i="'+i+'" data-f="prix" inputmode="numeric" value="'+(l.libelle?l.prix:'')+'" autocomplete="off"></label></div>'+
     '<div class="sub"><span class="small muted">Sous-total</span><span class="num" id="ln-sub-'+i+'">'+fmt(l.qte*l.prix)+'</span></div></div>'}).join('');
-  h+='<button class="btn" data-act="addLine">+ Ajouter une prestation</button><div class="err" id="ed-err"'+(edErr?'':' hidden')+'>'+esc(edErr)+'</div>';
+  h+='<button class="btn" data-act="addLine">+ Ajouter une prestation</button>';
+  h+='<div class="line" style="grid-template-columns:1fr"><label>Règlement<select id="ed-statut">'+[['total','Payée en totalité'],['partiel','Payée en partie'],['impaye','Non payée']].map(function(o){return '<option value="'+o[0]+'"'+(draft.statut===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label>'+
+    (draft.statut==='partiel'?'<label>Montant reçu (DA)<input id="ed-recu" inputmode="numeric" autocomplete="off" value="'+(draft.recu||'')+'"></label>':'')+
+    (draft.statut!=='impaye'?'<label>Mode de paiement<select id="ed-mode">'+Object.keys(MODES).map(function(k){return '<option value="'+k+'"'+(draft.mode===k?' selected':'')+'>'+MODES[k]+'</option>'}).join('')+'</select></label>':'')+'</div>';
+  h+='<div class="err" id="ed-err"'+(edErr?'':' hidden')+'>'+esc(edErr)+'</div>';
   $('#ed-body').innerHTML=h; updTotals();
 }
 function updTotals(){
@@ -517,7 +534,8 @@ function saveInvoice(){
   else if(!lines.length)err='Choisissez au moins une prestation.';
   if(err){edErr=err;var e=$('#ed-err');e.textContent=err;e.hidden=false;e.scrollIntoView({block:'center'});return}
   var now=new Date().toISOString(),rec={id:draft.id||uid(),numero:num,date:draft.date,patient:draft.patient.trim(),
-    lignes:lines.map(function(l){return {serviceId:l.serviceId,libelle:l.libelle,qte:Math.max(1,l.qte),prix:Math.max(0,l.prix)}}),creeLe:draft.creeLe||now,modifieLe:now,maj:now};
+    lignes:lines.map(function(l){return {serviceId:l.serviceId,libelle:l.libelle,qte:Math.max(1,l.qte),prix:Math.max(0,l.prix)}}),creeLe:draft.creeLe||now,modifieLe:now,maj:now,mode:draft.mode||'especes'};
+  var tt=invTotal(rec),rc=draft.statut==='total'?null:draft.statut==='impaye'?0:Math.min(draft.recu||0,tt);rec.recu=rc!=null&&rc>=tt?null:rc;
   var list=D().invoices,ix=list.findIndex(function(i){return i.id===rec.id}),isNew=ix<0;
   if(isNew)list.push(rec);else list[ix]=rec;
   var m=/^F-(\d{4})-(\d+)$/.exec(num);if(m)D().compteur[m[1]]=Math.max(D().compteur[m[1]]||0,+m[2]);
@@ -528,7 +546,7 @@ function saveInvoice(){
 /* ---------- Documents imprimables ---------- */
 function docHead(titre,meta){
   var c=D().cabinet;
-  return '<div class="p-head"><div><div class="p-cab">'+esc(c.nom||'Cabinet dentaire')+'</div>'+(c.praticien?'<div>'+esc(c.praticien)+'</div>':'')+(c.adresse?'<div>'+esc(c.adresse)+'</div>':'')+(c.tel?'<div>Tél. '+esc(c.tel)+'</div>':'')+(c.mentions?'<div style="white-space:pre-line">'+esc(c.mentions)+'</div>':'')+'</div><div class="p-meta"><h1>'+titre+'</h1>'+meta+'</div></div>';
+  return '<div class="p-head"><div><div class="p-cab">'+esc(c.nom||'Cabinet médical')+'</div>'+(c.praticien?'<div>'+esc(c.praticien)+'</div>':'')+(c.adresse?'<div>'+esc(c.adresse)+'</div>':'')+(c.tel?'<div>Tél. '+esc(c.tel)+'</div>':'')+(c.mentions?'<div style="white-space:pre-line">'+esc(c.mentions)+'</div>':'')+'</div><div class="p-meta"><h1>'+titre+'</h1>'+meta+'</div></div>';
 }
 function invoiceDoc(i){
   var t=invTotal(i);
@@ -537,13 +555,15 @@ function invoiceDoc(i){
     '<table><thead><tr><th>Prestation</th><th class="r">Qté</th><th class="r">Prix unitaire</th><th class="r">Montant</th></tr></thead><tbody>'+
     i.lignes.map(function(l){return '<tr><td>'+esc(l.libelle)+'</td><td class="r">'+l.qte+'</td><td class="r">'+fmt(l.prix)+'</td><td class="r">'+fmt(l.qte*l.prix)+'</td></tr>'}).join('')+
     '</tbody><tfoot><tr><td colspan="3">Total général</td><td class="r" data-total>'+fmt(t)+'</td></tr></tfoot></table>'+
+    '<p class="p-note">'+(resteDe(i)<=0?'Réglée en totalité ('+MODES[i.mode||'especes'].toLowerCase()+').':'Reçu : '+fmt(recuDe(i))+(recuDe(i)?' ('+MODES[i.mode||'especes'].toLowerCase()+')':'')+' · <strong>Reste à payer : '+fmt(resteDe(i))+'</strong>')+'</p>'+
     '<p class="p-note">Arrêtée la présente facture à la somme de : <strong>'+esc(enLettres(t))+' dinars algériens</strong>.</p><p class="p-sign">Cachet et signature</p></div>';
 }
 function registerDoc(f){
   return '<div class="paper">'+docHead('Registre des factures','<div><strong>'+esc(f.label)+'</strong></div><div>'+pl(f.list.length,'facture')+'</div>')+
     '<table><thead><tr><th>N°</th><th>Date</th><th>Prestations</th><th class="r">Total</th></tr></thead><tbody>'+
-    f.list.map(function(i){return '<tr><td>'+esc(i.numero)+'</td><td>'+dfr(i.date)+'</td><td>'+esc(lignesTxt(i))+(i.patient?'<br><span style="font-size:.9em">Patient : '+esc(i.patient)+'</span>':'')+'</td><td class="r">'+fmt(invTotal(i))+'</td></tr>'}).join('')+
+    f.list.map(function(i){return '<tr><td>'+esc(i.numero)+'</td><td>'+dfr(i.date)+'</td><td>'+esc(lignesTxt(i))+(i.patient?'<br><span style="font-size:.9em">Patient : '+esc(i.patient)+'</span>':'')+(resteDe(i)>0?'<br><span style="font-size:.9em">'+(recuDe(i)?'Reste '+fmt(resteDe(i)):'Impayée')+'</span>':'')+'</td><td class="r">'+fmt(invTotal(i))+'</td></tr>'}).join('')+
     '</tbody><tfoot><tr><td colspan="3">Total de la période · '+pl(f.list.length,'facture')+'</td><td class="r" data-total>'+fmt(f.total)+'</td></tr></tfoot></table>'+
+    '<p class="p-note">Encaissé : <strong>'+fmt(f.recu)+'</strong> · Reste à payer : <strong>'+fmt(f.total-f.recu)+'</strong></p>'+
     '<p class="p-foot">Édité le '+dfr(today())+'.</p></div>';
 }
 function showDoc(title,html){
@@ -560,20 +580,31 @@ function exportData(){
   var json=JSON.stringify({app:'carnet-dentaire',version:1,exporteLe:stamp,data:real},null,1);
   var name='carnet-dentaire-sauvegarde-'+today()+'.json';
   function done(){real.derniereSauvegarde=stamp;save();render();toast('Sauvegarde exportée : '+name)}
-  function viaLink(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},4000);done()}
+  deliver(name,json,'application/json',done);
+}
+function deliver(name,text,mime,done){
+  function viaLink(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},4000);done()}
   var ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.platform||''));
   if(ios&&navigator.canShare){
-    try{var file=new File([json],name,{type:'application/json'});
+    try{var file=new File([text],name,{type:mime});
       if(navigator.canShare({files:[file]})){navigator.share({files:[file]}).then(done).catch(function(e){if(!e||e.name!=='AbortError')viaLink()});return}
     }catch(e){}
   }
   viaLink();
 }
+function exportCsv(){
+  var f=filtered();if(!f.list.length)return;
+  function c(v){v=String(v==null?'':v);if(/^[=+\-@\t]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'}
+  var rows=[['Numéro','Date','Patient','Prestations','Total (DA)','Encaissé (DA)','Reste (DA)','Mode de paiement']].concat(f.list.map(function(i){return [i.numero,dfr(i.date),i.patient,lignesTxt(i),invTotal(i),recuDe(i),resteDe(i),recuDe(i)?MODES[i.mode||'especes']:'']}));
+  rows.push(['Total',f.label,'',pl(f.list.length,'facture'),f.total,f.recu,f.total-f.recu,'']);
+  var name='factures-'+f.label.toLowerCase().replace(/[^a-z0-9àâéèêîôûç]+/g,'-').replace(/^-|-$/g,'')+'.csv';
+  deliver(name,'\ufeff'+rows.map(function(r){return r.map(function(v){return typeof v==='number'?v:c(v)}).join(';')}).join('\r\n'),'text/csv',function(){toast('Fichier exporté : '+name)});
+}
 function restoreFrom(file){
   var r=new FileReader();
   r.onload=function(){
     var d=null;try{var o=JSON.parse(r.result);d=normalize(o&&o.data?o.data:o)}catch(e){}
-    if(!d){toast('Ce fichier n’est pas une sauvegarde Carnet dentaire valide.');return}
+    if(!d){toast('Ce fichier n’est pas une sauvegarde valide de cette application.');return}
     ask('<strong>Restaurer cette sauvegarde ?</strong><p style="margin:8px 0 0">Elle contient '+pl(d.invoices.length,'facture')+' et '+pl(d.services.length,'prestation')+'. Elle <strong>remplacera</strong> les '+pl(real.invoices.length,'facture')+' actuellement sur cet appareil.</p>','Remplacer',function(){demo=null;var old=real,now=new Date().toISOString(),keep={};
       d.invoices.forEach(function(i){i.maj=now;keep['invoice:'+i.id]=1});d.services.forEach(function(x){x.maj=now;keep['service:'+x.id]=1});d.cabinet.maj=now;d.owner=sess?sess.user_id:undefined;
       old.invoices.forEach(function(i){if(!keep['invoice:'+i.id])syn.tombs['invoice:'+i.id]=now});old.services.forEach(function(x){if(!keep['service:'+x.id])syn.tombs['service:'+x.id]=now});
@@ -626,7 +657,8 @@ function syncDetail(){
 }
 function api(path,o){
   o=o||{};var c=o.cfg||cfg(),h={apikey:c.key,'Content-Type':'application/json'};
-  if(o.auth!==false&&sess&&sess.access_token)h.Authorization='Bearer '+sess.access_token;
+  if(o.token)h.Authorization='Bearer '+o.token;
+  else if(o.auth!==false&&sess&&sess.access_token)h.Authorization='Bearer '+sess.access_token;
   if(o.prefer)h.Prefer=o.prefer;
   return fetch(c.url+path,{method:o.method||'GET',headers:h,body:o.body?JSON.stringify(o.body):undefined}).then(function(r){return r.text().then(function(t){
     var j=null;try{j=t?JSON.parse(t):null}catch(e){}
@@ -708,6 +740,7 @@ function sync(){
     sy.err='';sy.last=new Date();
     var a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&$('#view').contains(a);
     if(changed&&!demo&&!typing)render();
+    maybeOnboard();
   },function(e){sy.err=sy.login?'':(navigator.onLine===false?'hors connexion':(e&&e.message)||'erreur réseau');if(sy.login)render()})
   .then(function(){sy.busy=false;updSyncUI();if(sy.again){sy.again=false;queueSync()}});
 }
@@ -722,21 +755,101 @@ function syncPanel(){
   }
   return '';
 }
-function signIn(){
-  var email=$('#sy-email').value.trim(),pass=$('#sy-pass').value,btn=$('#gate-btn'),base={url:SUPA_URL,key:SUPA_KEY};
-  function fail(m,wipe){var e=$('#sy-err');e.textContent=m;e.hidden=false;$('#gate-wipe').hidden=!wipe;btn.disabled=false;btn.textContent='Se connecter'}
-  if(!email||!pass)return fail('Indiquez l’e-mail et le mot de passe.');
-  btn.disabled=true;btn.textContent='Connexion…';
-  api('/auth/v1/token?grant_type=password',{method:'POST',auth:false,cfg:base,body:{email:email,password:pass}}).then(function(j){
-    var who=j.user&&j.user.id;
-    if(!j.access_token||!who)return fail('Réponse inattendue du serveur.');
-    if(real.owner&&real.owner!==who)return fail('Cet appareil contient les données d’un autre compte. Connectez-vous avec ce compte, ou effacez les données de cet appareil.',true);
-    real.owner=who;save();
-    sy.login=false;sy.err='';setSession(j,base);
-    syn.cursor=null;syn.dirty={};markAll();writeJ(YKEY,syn);
-    $('#sy-pass').value='';$('#sy-err').hidden=true;$('#gate-wipe').hidden=true;btn.disabled=false;btn.textContent='Se connecter';
-    render();sync();
-  },function(e){fail(e.status===400?'E-mail ou mot de passe incorrect.':(e.status?'Connexion impossible : '+e.message:'Pas de réponse du serveur. Vérifiez la connexion Internet : la première connexion nécessite le réseau.'))});
+var gateMode='in', recovery=null;
+var GATE={'in':{msg:'Connectez-vous pour ouvrir votre carnet. Vos factures sont les mêmes sur tous vos appareils.',btn:'Se connecter',alt:'Créer un compte',pass:'Mot de passe'},
+  up:{msg:'Créez votre compte. Chaque praticien a son propre carnet, que lui seul peut consulter.',btn:'Créer mon compte',alt:'J’ai déjà un compte',pass:'Mot de passe (8 caractères minimum)'},
+  forgot:{msg:'Indiquez votre e-mail : vous recevrez un lien pour choisir un nouveau mot de passe.',btn:'Envoyer le lien',alt:'Retour à la connexion',pass:''},
+  newpass:{msg:'Choisissez votre nouveau mot de passe.',btn:'Enregistrer le mot de passe',alt:'Annuler',pass:'Nouveau mot de passe (8 caractères minimum)'}};
+function renderGate(){
+  var g=GATE[gateMode];
+  $('#gate-msg').textContent=sy.login&&gateMode==='in'?'Votre session a expiré. Reconnectez-vous ; rien n’est perdu sur cet appareil.':g.msg;
+  if(!$('#gate-btn').disabled)$('#gate-btn').textContent=g.btn;
+  $('#gate-alt').textContent=g.alt;$('#gate-pass-lab').textContent=g.pass;
+  $('#gate-l-email').hidden=gateMode==='newpass';$('#gate-l-pass').hidden=gateMode==='forgot';$('#gate-forgot').hidden=gateMode!=='in';
+  $('#sy-pass').setAttribute('autocomplete',gateMode==='in'?'current-password':'new-password');
+  if(sess&&sess.email&&!$('#sy-email').value)$('#sy-email').value=sess.email;
+}
+function gateSet(mode){gateMode=mode;$('#sy-err').hidden=true;$('#sy-info').hidden=true;$('#gate-wipe').hidden=true;$('#sy-pass').value='';render()}
+function gateBusy(on){var b=$('#gate-btn');b.disabled=on;b.textContent=on?'Un instant…':GATE[gateMode].btn}
+function gateFail(m,wipe){var e=$('#sy-err');e.textContent=m;e.hidden=false;$('#gate-wipe').hidden=!wipe;gateBusy(false)}
+function gateInfo(m){var e=$('#sy-info');e.textContent=m;e.hidden=false}
+function authMsg(e){
+  var m=(e&&e.message)||'';
+  if(!e||!e.status)return 'Pas de réponse du serveur. Vérifiez la connexion Internet.';
+  if(/already registered|already been registered/i.test(m))return 'Un compte existe déjà avec cet e-mail. Connectez-vous.';
+  if(/signups? (not allowed|disabled)/i.test(m))return 'La création de compte est désactivée sur ce service.';
+  if(/not confirmed/i.test(m))return 'E-mail non confirmé : ouvrez le lien reçu par e-mail, puis connectez-vous.';
+  if(e.status===429||/rate limit/i.test(m))return 'Trop de tentatives. Réessayez dans quelques minutes.';
+  if(/invalid login/i.test(m)||(gateMode==='in'&&e.status===400))return 'E-mail ou mot de passe incorrect.';
+  if(/password/i.test(m)&&e.status===422)return 'Mot de passe refusé : choisissez-en un plus long ou moins courant.';
+  return 'Erreur : '+m;
+}
+function adopt(j){
+  var who=j.user&&j.user.id,base={url:SUPA_URL,key:SUPA_KEY};
+  if(!j.access_token||!who)return gateFail('Réponse inattendue du serveur.');
+  if(real.owner&&real.owner!==who){gateMode='in';gateBusy(false);renderGate();return gateFail('Cet appareil contient les données d’un autre compte. Connectez-vous avec ce compte, ou effacez les données de cet appareil.',true)}
+  real.owner=who;save();
+  sy.login=false;sy.err='';sy.last=null;setSession(j,base);
+  syn.cursor=null;syn.dirty={};markAll();writeJ(YKEY,syn);
+  gateMode='in';recovery=null;$('#sy-pass').value='';$('#sy-err').hidden=true;$('#sy-info').hidden=true;$('#gate-wipe').hidden=true;gateBusy(false);
+  render();sync();
+}
+function gateSubmit(){
+  var email=$('#sy-email').value.trim(),pass=$('#sy-pass').value,base={url:SUPA_URL,key:SUPA_KEY},back='?redirect_to='+encodeURIComponent(location.origin+location.pathname);
+  $('#sy-err').hidden=true;$('#sy-info').hidden=true;
+  if(gateMode!=='newpass'&&!/^\S+@\S+\.\S+$/.test(email))return gateFail('Indiquez une adresse e-mail valide.');
+  if(gateMode==='in'&&!pass)return gateFail('Indiquez le mot de passe.');
+  if((gateMode==='up'||gateMode==='newpass')&&pass.length<8)return gateFail('Le mot de passe doit contenir au moins 8 caractères.');
+  gateBusy(true);
+  var fail=function(e){gateFail(authMsg(e))};
+  if(gateMode==='in')api('/auth/v1/token?grant_type=password',{method:'POST',auth:false,cfg:base,body:{email:email,password:pass}}).then(adopt,fail);
+  else if(gateMode==='up')api('/auth/v1/signup'+back,{method:'POST',auth:false,cfg:base,body:{email:email,password:pass}}).then(function(j){
+    if(j&&j.access_token)return adopt(j);
+    gateMode='in';gateBusy(false);$('#sy-pass').value='';renderGate();gateInfo('Compte créé. Ouvrez le lien de confirmation envoyé à '+email+', puis connectez-vous.');
+  },fail);
+  else if(gateMode==='forgot')api('/auth/v1/recover'+back,{method:'POST',auth:false,cfg:base,body:{email:email}}).then(function(){
+    gateMode='in';gateBusy(false);renderGate();gateInfo('Si un compte existe pour '+email+', un lien de réinitialisation vient d’être envoyé.');
+  },fail);
+  else api('/auth/v1/user',{method:'PUT',cfg:base,token:recovery.access_token,body:{password:pass}}).then(function(){adopt(recovery)},fail);
+}
+function authHash(){
+  var h=location.hash.slice(1);if(!/access_token=|error=/.test(h))return;
+  var q=new URLSearchParams(h);
+  try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}
+  if(q.get('error')){setTimeout(function(){gateFail('Ce lien est invalide ou a expiré. Demandez-en un nouveau.')},0);return}
+  var at=q.get('access_token'),pay;
+  try{pay=JSON.parse(atob(at.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch(e){return}
+  var j={access_token:at,refresh_token:q.get('refresh_token'),expires_in:+q.get('expires_in')||3600,user:{id:pay.sub,email:pay.email}};
+  if(q.get('type')==='recovery'){recovery=j;gateMode='newpass'}
+  else setTimeout(function(){adopt(j)},0);
+}
+
+/* ---------- Première utilisation : activité et catalogue de départ ---------- */
+var PRESETS={
+  dentaire:['Chirurgien-dentiste',[['Consultation',1500],['Détartrage',3500],['Obturation',4000],['Extraction simple',3000],['Traitement endodontique',8000],['Radiographie',1000]]],
+  generaliste:['Médecin généraliste',[['Consultation',1500],['Consultation à domicile',3000],['Électrocardiogramme',1500],['Injection ou pansement',500],['Suture',2000],['Certificat médical',500]]],
+  specialiste:['Médecin spécialiste',[['Consultation spécialisée',2500],['Consultation de contrôle',1500],['Échographie',3000],['Électrocardiogramme',1500],['Acte technique',5000],['Certificat médical',500]]],
+  vide:['Autre activité (catalogue vide)',[]]};
+var obShown=false;
+function maybeOnboard(){
+  if(obShown||demo||EMBED||!sess||real.cabinet.profil||real.invoices.length||!real.services.every(function(s){return s.exemple}))return;
+  obShown=true;
+  $('#modal-title').textContent='Bienvenue';
+  $('#modal-body').innerHTML='<p style="margin:0">Trois informations pour préparer votre carnet. Tout reste modifiable ensuite dans « Prestations ».</p>'+
+    '<label>Votre activité<select id="ob-profil">'+Object.keys(PRESETS).map(function(k){return '<option value="'+k+'">'+PRESETS[k][0]+'</option>'}).join('')+'</select></label>'+
+    '<label>Nom du cabinet<input id="ob-nom" autocomplete="off" placeholder="Cabinet du Dr …"></label>'+
+    '<label>Praticien<input id="ob-praticien" autocomplete="off" placeholder="Dr …"></label>'+
+    '<p class="small muted" style="margin:0">Le catalogue de départ contient des prestations courantes avec des prix d’exemple. Il vous appartient : vous pouvez tout renommer, ajouter ou désactiver.</p>'+
+    '<button class="btn primary big" data-act="saveOnboard">Commencer</button>';
+  $('#modal').hidden=false;
+}
+function saveOnboard(){
+  var k=$('#ob-profil').value,now=new Date().toISOString();if(!PRESETS[k])return;
+  real.services.forEach(function(s){syn.tombs['service:'+s.id]=now;syn.dirty['service:'+s.id]=1});
+  real.services=PRESETS[k][1].map(function(e,i){return {id:k+'-'+(i+1),nom:e[0],prix:e[1],actif:true,exemple:true,maj:now}});
+  real.cabinet.profil=k;real.cabinet.nom=$('#ob-nom').value.trim();real.cabinet.praticien=$('#ob-praticien').value.trim();real.cabinet.maj=now;
+  save();real.services.forEach(function(s){syn.dirty['service:'+s.id]=1});mark('meta','cabinet');
+  $('#modal').hidden=true;render();toast('Votre carnet est prêt');
 }
 function wipeLocal(){
   demo=null;real=fresh();sess=null;syn={cursor:null,dirty:{},tombs:{}};
@@ -779,7 +892,10 @@ var ACT={
     else{s={id:uid(),nom:nom,prix:prix,actif:$('#svc-actif').checked,exemple:false};D().services.push(s)}
     s.maj=new Date().toISOString();save();mark('service',s.id);$('#modal').hidden=true;render();toast('Prestation enregistrée : '+nom+' · '+fmt(prix));
   },
-  signOut:signOut, wipeDevice:wipeDevice, syncNow:function(){sy.err='';sync()},
+  signOut:signOut, wipeDevice:wipeDevice, saveOnboard:saveOnboard, exportCsv:exportCsv,
+  gateAlt:function(){if(gateMode==='newpass')recovery=null;gateSet(gateMode==='in'?'up':'in')},
+  gateForgot:function(){gateSet('forgot')},
+  markPaid:function(id){var i=D().invoices.find(function(x){return x.id===id});if(!i)return;i.recu=null;i.maj=i.modifieLe=new Date().toISOString();save();mark('invoice',id);$('#modal').hidden=true;render();toast('Facture '+i.numero+' marquée payée')}, syncNow:function(){sy.err='';sync()},
   exportData:exportData,
   pickRestore:function(){$('#restore-file').click()},
   startDemo:startDemo,
@@ -801,6 +917,8 @@ document.addEventListener('change',function(e){
     var l=draft.lignes[+t.dataset.i],s=D().services.find(function(x){return x.id===t.value});
     if(s){l.serviceId=s.id;l.libelle=s.nom;l.prix=s.prix;$('#ln-prix-'+t.dataset.i).value=s.prix;updTotals()}
   }
+  else if(t.id==='ed-statut'&&draft){draft.statut=t.value;if(t.value==='partiel'&&draft.recu==null)draft.recu=0;renderEditor()}
+  else if(t.id==='ed-mode'&&draft)draft.mode=t.value;
   else if(t.dataset.f==='qte'&&draft){var q=Math.max(1,parseIntLoose(t.value));draft.lignes[+t.dataset.i].qte=q;t.value=q;updTotals()}
 });
 document.addEventListener('input',function(e){
@@ -808,12 +926,14 @@ document.addEventListener('input',function(e){
   if(t.id==='ed-numero')draft.numero=t.value;
   else if(t.id==='ed-date')draft.date=t.value;
   else if(t.id==='ed-patient')draft.patient=t.value;
+  else if(t.id==='ed-recu')draft.recu=parseIntLoose(t.value);
   else if(t.dataset.f==='prix'){draft.lignes[+t.dataset.i].prix=parseIntLoose(t.value);updTotals()}
   else if(t.dataset.f==='qte'){draft.lignes[+t.dataset.i].qte=Math.max(1,parseIntLoose(t.value));updTotals()}
 });
-document.addEventListener('submit',function(e){if(e.target.id==='gate-form'){e.preventDefault();signIn()}});
+document.addEventListener('submit',function(e){if(e.target.id==='gate-form'){e.preventDefault();gateSubmit()}});
 setInterval(function(){if(!document.hidden)sync()},120000);
 window.addEventListener('hashchange',function(){render();window.scrollTo(0,0)});
+authHash();
 render();
 sync();window.addEventListener('online',function(){sync()});document.addEventListener('visibilitychange',function(){if(!document.hidden)sync()});
 if(!EMBED&&'serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(function(){});

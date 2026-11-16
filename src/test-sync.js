@@ -13,9 +13,10 @@ const { chromium, devices } = require('playwright'); const assert = require('ass
 
   const A = await mk();
   await login(A, 'faux'); await A.waitForSelector('#sy-err:not([hidden])'); log('mauvais mot de passe :', await T(A, '#sy-err'));
-  await login(A); await invoice(A, 'Consultation — 1 500 DA'); await A.waitForTimeout(1500); await synced(A); log('A connecté, facture envoyée');
+  await login(A); await A.waitForSelector('#ob-profil'); await A.click('[data-act=saveOnboard]'); await A.waitForTimeout(1500); await synced(A);
+  await invoice(A, 'Consultation — 1 500 DA'); await A.waitForTimeout(1500); await synced(A); log('A connecté, facture envoyée');
 
-  const B = await mk(); await login(B); await nav(B, 'tableau');
+  const B = await mk(); await login(B); await nav(B, 'tableau'); assert.equal(await B.locator('#ob-profil').count(), 0);
   let k = await T(B, '.kpis'); assert(/1 500 DA 1 facture/.test(k), k); log('B reçoit la facture de A :', k);
 
   await nav(B, 'prestations'); await B.click('button.item:has-text("Détartrage")'); await B.fill('#svc-prix', '4000'); await B.click('[data-act=saveService]'); await B.waitForTimeout(1500); await synced(B);
@@ -36,6 +37,13 @@ const { chromium, devices } = require('playwright'); const assert = require('ass
   // Suppression propagée
   await A.click('button[data-act=openInvoice] >> nth=0'); await A.click('[data-act=deleteInvoice]'); await A.click('#confirm-ok'); await A.waitForTimeout(1500); await synced(A);
   await syncNow(B); await nav(B, 'tableau'); k = await T(B, '.kpis'); assert(/2 factures/.test(k), k); log('suppression sur A propagée à B :', k);
+  // Autre praticien : compte créé dans l'application, carnet séparé, catalogue de sa spécialité
+  const C = await mk(); await C.click('#gate-alt'); await C.fill('#sy-email', 'autre@test.dz'); await C.fill('#sy-pass', 'court'); await C.click('#gate-btn');
+  await C.waitForSelector('#sy-err:not([hidden])'); log('mot de passe trop court :', await T(C, '#sy-err'));
+  await C.fill('#sy-pass', 'motdepasse1'); await C.click('#gate-btn'); await C.waitForSelector('#ob-profil'); await C.selectOption('#ob-profil', 'generaliste'); await C.click('[data-act=saveOnboard]');
+  k = await T(C, '.kpis'); assert(/0 DA 0 facture/.test(k), k); await nav(C, 'prestations'); const cat = await T(C, '#view'); assert(/Certificat médical/.test(cat) && !/Détartrage/.test(cat)); log('nouveau praticien : carnet vide et séparé, catalogue généraliste');
+  await C.waitForTimeout(1500); await synced(C); await syncNow(B); await nav(B, 'prestations'); const catB = await T(B, '#view'); assert(/Détartrage/.test(catB) && !/Certificat médical/.test(catB)); log('le catalogue du premier praticien est inchangé');
+  await C.click('#gate-alt').catch(() => {});
   // Rechargement : session conservée
   await B.reload(); await synced(B); log('session conservée après rechargement');
   assert.deepEqual(errs, []); log('aucune erreur'); await b.close();

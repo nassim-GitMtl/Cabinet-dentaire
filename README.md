@@ -1,17 +1,17 @@
-# Carnet dentaire
+# Carnet de cabinet
 
-Application web de facturation pour cabinet dentaire (montants en DA) : tableau de bord, factures, catalogue de prestations, impression A4, synchronisation entre appareils.
+Application web de facturation pour praticiens (dentistes, généralistes, spécialistes), montants en DA : tableau de bord, factures et règlements, catalogue de prestations propre à chaque praticien, impression A4, export Excel, synchronisation entre appareils.
 
 - Application : https://nassim-gitmtl.github.io/Cabinet-dentaire/
 - Sur iPhone : ouvrir dans Safari, Partager, « Sur l'écran d'accueil », puis toujours lancer depuis l'icône.
+- Chaque praticien crée son compte dans l'application et ne voit que ses propres données.
 
 ## Mise en service (une seule fois, dans Supabase)
 
 1. SQL Editor : exécuter `supabase.sql`.
-2. Authentication → Users → Add user : créer le compte du cabinet, « Auto confirm user » coché.
-3. Authentication → Sign In / Providers : désactiver « Allow new users to sign up ».
-
-Mot de passe oublié : le changer dans Authentication → Users.
+2. Authentication → Sign In / Providers : laisser « Allow new users to sign up » activé.
+3. Authentication → URL Configuration : mettre l'adresse de l'application dans « Site URL » et dans « Redirect URLs » (liens de confirmation et de mot de passe oublié).
+4. E-mails : soit désactiver « Confirm email » (inscription immédiate), soit brancher un service SMTP ; l'envoi intégré de Supabase est très limité.
 
 ## Fonctionnement des données
 

@@ -12,6 +12,7 @@ const shots = process.argv[2];
   await p.goto('http://localhost:8765/index.html');
   assert.equal(await p.locator('#gate').isVisible(), true); assert.equal((await p.locator('#view').innerText()).trim(), ''); console.log('OK écran de connexion affiché en premier, aucune donnée derrière');
   await p.fill('#sy-email', 'doc@test.dz'); await p.fill('#sy-pass', 'secret'); await p.click('#gate-btn'); await p.waitForSelector('#gate', { state: 'hidden' });
+  await p.waitForSelector('#ob-profil'); await p.selectOption('#ob-profil', 'dentaire'); await p.fill('#ob-nom', 'Cabinet Test'); await p.click('[data-act=saveOnboard]'); console.log('OK accueil : activité choisie, catalogue de départ créé');
   const T = s => p.locator(s).innerText().then(t => t.replace(/ /g, ' ').replace(/\s+/g, ' '));
   const nav = async t => { await p.click('[data-tab=' + t + ']'); await p.waitForSelector('.tabs a[data-tab=' + t + '][aria-current]'); await p.waitForFunction(t => document.querySelector('#view h1').textContent.toLowerCase().startsWith(t.slice(0, 6)), t); };
   const log = (...a) => console.log('OK', ...a);
@@ -39,6 +40,7 @@ const shots = process.argv[2];
   // 3. Registre + impression de la liste
   await nav('factures');
   const reg = await T('#view'); assert(/1 facture/.test(reg) && /8 500 DA/.test(reg)); log('registre écran :', reg.slice(0, 120));
+  { const [dl] = await Promise.all([p.waitForEvent('download'), p.click('[data-act=exportCsv]')]); const csv = require('fs').readFileSync(await dl.path(), 'utf8'); assert(/"F-2026-0001";"16\/11\/2026";"";"Consultation, Détartrage ×2";8500;8500;0;"Espèces"/.test(csv), csv); log('export Excel :', dl.suggestedFilename()); }
   await p.click('[data-act=printList]');
   assert.equal(await p.evaluate(() => window.__printed), 1);
   const paper = await T('#paper'); assert(/Journée du/.test(paper) && /1 facture/.test(paper));
@@ -77,6 +79,13 @@ const shots = process.argv[2];
   await p.fill('#ln-prix-0', '3000'); assert.equal(await T('#ed-total'), '3 000 DA');
   await p.click('[data-act=closeEditor]');
   assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('carnet-dentaire-v1')).services.find(s => s.nom === 'Détartrage').prix), 4000);
+
+  // Règlement : impayée puis payée
+  await nav('factures'); await p.click('button.item[data-act=openInvoice]'); await p.click('[data-act=editInvoice]');
+  await p.selectOption('#ed-statut', 'partiel'); await p.fill('#ed-recu', '5000'); await p.click('#ed-save'); await nav('tableau');
+  k = await T('.kpis'); assert(/8 500 DA 1 facture Encaissé 5 000 DA · reste 3 500 DA/.test(k), k); assert(/Restes à payer 3 500 DA/.test(await T('#dus'))); log('paiement partiel :', k);
+  await p.click('#dus [data-act=openInvoice]'); await p.click('[data-act=printInvoice]'); assert(/Reçu : 5 000 DA \(espèces\) · Reste à payer : 3 500 DA/.test(await T('#paper'))); await p.click('[data-act=closeApercu]');
+  await p.click('#dus [data-act=openInvoice]'); await p.click('[data-act=markPaid]'); assert.equal(await p.locator('#dus').count(), 0); log('marquée payée : plus de reste');
 
   // 5. Persistance après rechargement, démonstration hors totaux
   await p.reload();
