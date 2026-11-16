@@ -561,7 +561,7 @@ function startDemo(){
 }
 
 /* ---------- Synchronisation entre appareils (Supabase) ---------- */
-var SUPA_URL='', SUPA_KEY='sb_publishable_KtecPpudCqwzvDItFGc58g_ITkQdoQ_';   // à renseigner pour ne pas avoir à les saisir sur chaque appareil
+var SUPA_URL='https://olnqyuzogijgykztopgs.supabase.co', SUPA_KEY='sb_publishable_KtecPpudCqwzvDItFGc58g_ITkQdoQ_';   // à renseigner pour ne pas avoir à les saisir sur chaque appareil
 var SKEY='carnet-dentaire-session', YKEY='carnet-dentaire-sync';
 function readJ(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
 function writeJ(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
